@@ -89,5 +89,7 @@ description: 用 Claude Code + HyperFrames 制作不露脸纪录片短视频的�
 - `scripts/examples/carrington-10s/`：用户确认过效果的 10 秒一镜到底示例（画面 + 声音），做扁平插画动画前先读它。
 - `scripts/examples/sky-blue-15s/sky.html`：用户确认过效果的 Canvas 光影样片（15 秒竖屏），做这种画风前先读它。用浏览器直接打开就能拖时间轴预览。
 - `scripts/render_canvas_page.js`：Canvas 光影的渲染管线。用无头 Chromium 打开 HTML 动画页，逐帧调用 `window.renderFrame(n)`，编码成 MP4；`--stills` 抽帧拼联系表自查；`--from/--to` 分段渲染。
+- `scripts/music/`：代码编曲（mido 写谱 → sfizz 采样乐器 + Surge XT 合成器 → pedalboard 混音），音乐和音效能精确卡到画面和口播的时刻。`setup.sh` 装环境，用法见 audio.md 的"代码编曲"。
+- `scripts/examples/cat-cartoon-15s/`：2D 动画片样片，配乐和音效都用代码编曲完成。
 - `scripts/mix_audio.py`：混音。背景音乐按旁白自动闪避，整体响度统一到 -14 LUFS，可直接把声音合进视频。只依赖 ffmpeg。用法见 audio.md。
 - `scripts/align_shots.py`：整段配音的对时与检查。用语音识别得到每个字的时刻，算出每个分镜的起止时间（输出 shots.json），并报告无声分镜、超过 1.5 秒的静音、读错或漏读的地方。用法见 06-voice.md。
