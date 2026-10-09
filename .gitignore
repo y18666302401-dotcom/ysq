@@ -1,0 +1,6 @@
+out/
+*.premix.wav
+.stills-*/
+__pycache__/
+node_modules/
+*.zip
