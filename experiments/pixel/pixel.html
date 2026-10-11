@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>像素角色设计</title>
+<style>
+:root{--bg:#F1E6D2;--fg:#2A1F33;--muted:#6D5F70}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans SC","PingFang SC",system-ui,sans-serif}
+main{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px}
+.stage,.note{width:min(calc(80vh * 9 / 16),calc(100vw - 32px),460px)}
+.stage{aspect-ratio:9/16;border-radius:18px;overflow:hidden}
+canvas{width:100%;height:100%;display:block;image-rendering:pixelated}
+.note{margin:0;font-size:13px;line-height:1.7;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<div class="stage"><canvas id="cv" role="img" aria-label="像素风角色设计：抱着黄铜望远镜的年轻女天文学者，3/4 侧身，以及四个角度的转面图"></canvas></div>
+<p class="note">像素风角色设计稿（原创角色）：19 世纪的年轻女天文学者，3/4 侧身，抱着黄铜望远镜。画面是 216×384 的像素画布、整数 5 倍放大；每种材质 2–3 阶限色，1 像素描边，阴影按形体分块。下方是同一份造型在 0°/30°/60°/90° 的转面图。4 秒循环：呼吸、眨眼、围巾和发丝晚一拍飘动，每秒 8 张。</p>
+</main>
+<script src="../../skills/documentary-video/scripts/character_kit.js"></script>
+<script src="../three-quarter/kit3q.js"></script>
+<script>
+// ---------- 画布：低分辨率像素画布，最后整数倍放大 ----------
+const PX=5,LW=216,LH=384,W=LW*PX,H=LH*PX,FPS=24,DUR=4;
+const cv=document.getElementById('cv');cv.width=W;cv.height=H;const ctx=cv.getContext('2d');
+const low=document.createElement('canvas');low.width=LW;low.height=LH;const lg=low.getContext('2d');
+const mk=document.createElement('canvas');mk.width=LW;mk.height=LH;const mg=mk.getContext('2d',{willReadFrequently:true});
+const {camera,rotY,rotX,surf,surfNormal,sliceAt,ringY,hull,sweepPolys,ik3,follow,lerp,clamp}=K3;
+
+// ---------- 调色板：每种材质 3 阶（暗、中、亮），全图 20 色以内 ----------
+const OUT='#1f1830';
+const PAL={skin:['#c4756a','#f0b08e','#ffd8b8'],hair:['#3d1f2e','#6e3337','#9c5040'],coat:['#173332','#2c5a52','#4b8a70'],
+  skirt:['#1b1e3d','#2c3463','#465090'],scarf:['#9c5a24','#dc9a36','#f6cf6c'],brass:['#6e4a1c','#c08a2c','#f0cc66'],
+  boot:['#24181e','#3e2a32','#5a3e44'],shirt:['#b8a98e','#ece2cc','#fff6e2'],lens:['#1d2a40','#3d6080','#9fd0e8']};
+const SKY=['#0f1028','#16183a','#1e2350','#29306a'];
+
+// ---------- 动作（只由时间决定） ----------
+const breathF=t=>Math.sin(t*Math.PI)>0.3?1:0;                    // 呼吸：每 2 秒上身起伏一像素
+const swayD=t=>Math.sin(t*Math.PI*.5)*14+(breathF(t)?4:0);        // 风 + 呼吸
+const scarfLag=follow(swayD,{k:18,c:3,T:DUR+1});
+const blinkF=t=>((t%4)>2.6&&(t%4)<2.78)?1:0;
+
+// ---------- 角色造型（3D 截面，单位与 kit3q 测试一致） ----------
+const HEAD=[{y:-684,rx:8,rz:8},{y:-674,rx:36,rz:40},{y:-652,rx:46,rz:52},{y:-624,rx:47,rz:54},{y:-598,rx:42,rz:48,cz:2},{y:-582,rx:30,rz:36,cz:6},{y:-572,rx:16,rz:22,cz:10}];
+const TORSO=[{y:-548,rx:30,rz:26},{y:-534,rx:58,rz:34},{y:-512,rx:60,rz:38},{y:-478,rx:50,rz:38,cz:4},{y:-432,rx:38,rz:30},{y:-408,rx:44,rz:34},{y:-392,rx:54,rz:42}];
+const SKIRT=[{y:-412,rx:40,rz:32},{y:-330,rx:66,rz:54},{y:-180,rx:88,rz:72},{y:-24,rx:104,rz:88},{y:-14,rx:104,rz:88}];
+
+function character(P,t,anim=true){
+  const parts=[];const add=(name,polys,ramp,{group=name,sh=2,hl=0}={})=>parts.push({name,polys,ramp:PAL[ramp],group,sh,hl});
+  const br=anim?breathF(t):0,up=p=>p[1]<-400?[p[0],p[1]-br*4,p[2]]:p; // 呼吸时上身抬高 1 像素
+  const Q=p=>P(up(p)),q2=p=>{const q=Q(p);return[q[0],q[1]]};
+  // 头部整体放大（像素角色的头身比约 1:5，五官才有足够的像素）：以下巴为中心缩放
+  const HK=1.32,piv=[0,-560,8],hs=p=>[piv[0]+(p[0]-piv[0])*HK,piv[1]+(p[1]-piv[1])*HK,piv[2]+(p[2]-piv[2])*HK];
+  const QH=p=>Q(hs(p)),h2=p=>{const q=QH(p);return[q[0],q[1]]};
+  const sweep=(sl,step=6,f=c=>c,proj=Q,n=20)=>{const R=[];for(let y=sl[0].y;y<=sl[sl.length-1].y+1e-6;y+=step)R.push(ringY(f(sliceAt(sl,y)),n).map(p=>{const q=proj(p);return[q[0],q[1]]}));return sweepPolys(R)};
+  const tubeP=(pts,r0,r1)=>{const o=[];for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],k0=(i-1)/(pts.length-1),k1=i/(pts.length-1);o.push(hull([...ringAround(a,lerp(r0,r1,k0)),...ringAround(b,lerp(r0,r1,k1))]))}return o};
+  const ringAround=(p,r)=>{const c=Q(p),s=r*P.s,o=[];for(let i=0;i<12;i++){const a=i/12*Math.PI*2;o.push([c[0]+Math.cos(a)*s,c[1]+Math.sin(a)*s])}return o};
+  // 远侧手臂（藏在身后，手扶着望远镜前段）
+  const shF=[52,-526,0],hF=[22,-486,66],aF=ik3(shF,hF,104,96,[.6,.4,-1]);
+  add('farArm',tubeP([shF,aF.E,aF.H],15,12),'coat',{group:'farArm',sh:1});
+  // 裙子：一整块放样体，下摆随风晚一拍摆动
+  const sk=anim?scarfLag(t):0;
+  add('skirt',sweep(SKIRT,10,c=>({...c,cx:(c.cx||0)+(c.y>-300?sk*.6*(c.y+300)/-280:0)})),'skirt',{sh:4,hl:1});
+  // 靴尖从裙摆下露出来
+  [-24,22].forEach(x=>add('boot'+x,[hull([[x-12,-12,62],[x+12,-12,62],[x-12,0,62],[x+12,0,62],[x-10,0,96],[x+10,0,96],[x-8,-10,94],[x+8,-10,94]].map(q2))],'boot',{group:'skirt',sh:1}));
+  // 上衣、脖子、围巾
+  add('torso',sweep(TORSO,6),'coat',{sh:3,hl:1});
+  add('neck',sweep([{y:-578,rx:14,rz:14,cz:6},{y:-540,rx:15,rz:15,cz:4}],6),'skin',{group:'torso',sh:1});
+  add('scarf',sweep([{y:-560,rx:30,rz:30,cz:6},{y:-548,rx:36,rz:34,cz:6},{y:-536,rx:30,rz:30,cz:6}],4),'scarf',{sh:2,hl:1});
+  const sc=anim?scarfLag(t):0;const tail=[[-18,-546,30],[-24,-520,40+sc*.2],[-30+sc*.4,-490,44+sc*.5],[-34+sc*.8,-462,44+sc*.8]];
+  add('scarfTail',tubeP(tail,10,8),'scarf',{group:'scarf',sh:1,hl:1});
+  // 头、头发（发髻在脑后，一缕发丝在近侧脸旁）
+  add('hairBack',sweep([{y:-690,rx:44,rz:50,cz:-6},{y:-650,rx:52,rz:58,cz:-8},{y:-610,rx:46,rz:46,cz:-18},{y:-586,rx:30,rz:28,cz:-24}],5,c=>c,QH),'hair',{group:'hair',sh:2,hl:1});
+  add('bun',sweep([{y:-716,rx:8,rz:8,cz:-46},{y:-706,rx:26,rz:26,cz:-50},{y:-684,rx:32,rz:32,cz:-56},{y:-662,rx:26,rz:26,cz:-54},{y:-652,rx:10,rz:10,cz:-50}],4,c=>c,QH),'hair',{group:'hair',sh:2,hl:1});
+  add('head',sweep(HEAD,4,c=>c,QH,24),'skin',{sh:2,hl:1});
+  // 发壳：盖住整个头顶，前沿由下面的刘海决定
+  add('cap',sweep(HEAD.filter(c=>c.y<=-652).concat([{y:-664,rx:49,rz:56}]),3,c=>({...c,rx:c.rx*1.07,rz:c.rz*1.07,cz:(c.cz||0)-2}),QH,24),'hair',{group:'hair',sh:1,hl:1});
+  // 刘海：贴着头的表面画，发际线在近侧高、扫向远侧时变低（侧分），边缘略微鼓出头的轮廓
+  const hairline=phi=>-652-10*Math.cos((phi+60)*K3.D)+6*Math.sin(phi*.12);
+  const fr=[];for(let phi=-110;phi<=100;phi+=10)fr.push(h2(surf(HEAD,-696,phi,1.07)));for(let phi=100;phi>=-110;phi-=10)fr.push(h2(surf(HEAD,hairline(phi),phi,1.05)));
+  add('fringe',[fr],'hair',{group:'hair',sh:1,hl:1});
+  // 近侧鬓发：盖住耳际，一直垂到下颌
+  const sd=[];for(let y=-664;y<=-596;y+=8)sd.push(h2(surf(HEAD,y,-96-(y+664)*.25,1.08)));for(let y=-596;y>=-664;y-=8)sd.push(h2(surf(HEAD,y,-160,1.08)));
+  add('side',[sd],'hair',{group:'hair',sh:1,hl:0});
+  // 望远镜（黄铜），近侧的手握着后段
+  const t0=[-84,-372,48],t1=[50,-530,72];add('scope',tubeP([t0,lerp3(t0,t1,.55),t1],11,15),'brass',{sh:1,hl:1});
+  add('rim',tubeP([lerp3(t0,t1,.94),lerp3(t0,t1,1.04)],18,18),'brass',{group:'scope',sh:1,hl:1});
+  add('eyepiece',tubeP([lerp3(t0,t1,-.08),t0],7,8),'boot',{group:'scope',sh:0});
+  const shN=[-52,-526,0],hN=[-46,-420,60],aN=ik3(shN,hN,104,96,[-.6,.5,-1]);
+  add('nearArm',tubeP([shN,aN.E,aN.H],16,12),'coat',{group:'torso',sh:2,hl:1});
+  add('handN',[hull(ringAround(hN,13))],'skin',{sh:1});
+  add('handF',[hull(ringAround(aF.H,11))],'skin',{sh:1});
+  return {parts,Q,QH,t0,t1,blink:anim?blinkF(t):0};
+}
+const lerp3=(a,b,k)=>a.map((v,i)=>lerp(v,b[i],k));
+
+// ---------- 像素化：每个部件单独光栅化（硬边，不要抗锯齿），按前后顺序写入 ID 图 ----------
+function rasterize(c){
+  const N=LW*LH,id=new Int16Array(N).fill(-1),full=[];
+  c.parts.forEach((p,k)=>{
+    mg.setTransform(1,0,0,1,0,0);mg.clearRect(0,0,LW,LH);mg.fillStyle='#000';
+    p.polys.forEach(P=>{mg.beginPath();P.forEach((q,i)=>i?mg.lineTo(q[0],q[1]):mg.moveTo(q[0],q[1]));mg.closePath();mg.fill()});
+    const d=mg.getImageData(0,0,LW,LH).data,m=new Uint8Array(N);
+    for(let i=0;i<N;i++)if(d[i*4+3]>=128){m[i]=1;id[i]=k}
+    full.push(m);
+  });
+  return {id,full};
+}
+function paint(c,{ox=0,oy=0}={}){
+  const {id,full}=rasterize(c),N=LW*LH,col=new Array(N).fill(null),parts=c.parts;
+  const inF=(k,x,y)=>x>=0&&y>=0&&x<LW&&y<LH&&full[k][y*LW+x];
+  const at=(x,y)=>x>=0&&y>=0&&x<LW&&y<LH?id[y*LW+x]:-1;
+  for(let y=0;y<LH;y++)for(let x=0;x<LW;x++){const k=id[y*LW+x];if(k<0)continue;const p=parts[k];let s=1;
+    // 暗部：沿光的反方向（光从左上来）挪 sh 像素后不在形状里 → 背光的一侧
+    if(p.sh&&!inF(k,x-Math.round(p.sh*.6),y-Math.round(p.sh*.8)))s=0;
+    // 亮部：受光一侧的 1 像素边
+    else if(p.hl&&(!inF(k,x-1,y-1)||!inF(k,x,y-1)&&!inF(k,x-1,y)))s=2;
+    col[y*LW+x]=p.ramp[s];}
+  // 内部分界线：前面的部件压在别的组上时，交界的像素画成暗色（同组的部件之间不画，四肢从身体里长出来）
+  for(let y=0;y<LH;y++)for(let x=0;x<LW;x++){const k=id[y*LW+x];if(k<0)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const n=at(x+dx,y+dy);if(n>=0&&n<k&&parts[n].group!==parts[k].group){col[y*LW+x]=dy<0||dx<0?parts[k].ramp[0]:OUT;break}}}
+  // 去掉孤立的暗部像素（像素画里单个"脏点"最显眼）
+  for(let y=1;y<LH-1;y++)for(let x=1;x<LW-1;x++){const i=y*LW+x,k=id[i];if(k<0||col[i]!==parts[k].ramp[0])continue;let same=0;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])if(col[i+dy*LW+dx]===col[i])same++;if(!same)col[i]=parts[k].ramp[1]}
+  // 外轮廓：紧贴角色的背景像素描成 1 像素的深色边
+  const outl=new Uint8Array(N);
+  for(let y=0;y<LH;y++)for(let x=0;x<LW;x++){if(id[y*LW+x]>=0)continue;for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])if(at(x+dx,y+dy)>=0){outl[y*LW+x]=1;break}}
+  for(let i=0;i<N;i++){if(outl[i]){lg.fillStyle=OUT;lg.fillRect(i%LW,(i/LW)|0,1,1)}else if(col[i]){lg.fillStyle=col[i];lg.fillRect(i%LW,(i/LW)|0,1,1)}}
+  return {id,parts};
+}
+const dot=(x,y,c)=>{lg.fillStyle=c;lg.fillRect(Math.round(x),Math.round(y),1,1)};
+function line(a,b,c){let x0=Math.round(a[0]),y0=Math.round(a[1]);const x1=Math.round(b[0]),y1=Math.round(b[1]),dx=Math.abs(x1-x0),dy=-Math.abs(y1-y0),sx=x0<x1?1:-1,sy=y0<y1?1:-1;let e=dx+dy;for(let i=0;i<400;i++){dot(x0,y0,c);if(x0===x1&&y0===y1)break;const e2=2*e;if(e2>=dy){e+=dy;x0+=sx}if(e2<=dx){e+=dx;y0+=sy}}}
+
+// ---------- 逐像素细节：五官、纽扣、裙褶、望远镜的箍 ----------
+function details(c,P,{id,parts},big){
+  const Q=c.Q,f=(y,phi,sl=HEAD)=>{const n=surfNormal(sl,y,phi),l=Math.hypot(n[0],n[2]);return P.facing([n[0]/l,0,n[2]/l])};
+  const is=(name,q)=>{const x=Math.round(q[0]),y=Math.round(q[1]),k=id[y*LW+x];return k>=0&&parts[k].name===name};
+  // 裙褶：沿表面的竖线，只在看得见的一面
+  [-50,-20,10,40,70].forEach(phi=>{if(f(-200,phi,SKIRT)<.25)return;for(let y=-380;y<=-40;y+=4){const q=Q(surf(SKIRT,y,phi+(y+380)*.02));if(is('skirt',q))dot(q[0],q[1],PAL.skirt[0])}});
+  // 上衣开襟和纽扣
+  for(let y=-520;y<=-400;y+=3){const q=Q(surf(TORSO,y,6));if(is('torso',q))dot(q[0],q[1],PAL.coat[0])}
+  if(big)[-500,-470,-440].forEach(y=>{const q=Q(surf(TORSO,y,14));if(is('torso',q))dot(q[0],q[1],PAL.brass[2])});
+  // 望远镜的箍和镜片
+  [.28,.6,.9].forEach(k=>{const a=Q(lerp3(c.t0,c.t1,k));const r=(9+3*k)*P.s;line([a[0]-r*.5,a[1]-r*.8],[a[0]+r*.5,a[1]+r*.8],PAL.brass[0])});
+  const L=Q(lerp3(c.t0,c.t1,1.04));dot(L[0],L[1],PAL.lens[2]);dot(L[0]+1,L[1],PAL.lens[1]);dot(L[0],L[1]+1,PAL.lens[1]);
+  // 五官（贴在头的表面，远侧眼睛变窄或被挡住）
+  const QH=c.QH;
+  [[-28],[28]].forEach(([phi])=>{const fe=f(-622,phi);if(fe<.2)return;const q=QH(surf(HEAD,-622,phi));const x=Math.round(q[0]),y=Math.round(q[1]);
+    if(c.blink){dot(x,y+1,OUT);dot(x+1,y+1,OUT);if(big)dot(x-1,y,OUT);return}
+    // 眼睛 2×3（远侧变窄成 1×3），右上角一个高光
+    const w2=big&&fe>.6?2:1;for(let i=0;i<w2;i++)for(let j=0;j<(big?3:2);j++)dot(x+i,y+j,OUT);
+    if(big&&w2===2)dot(x+1,y,'#fff6e2');if(big){dot(x-1,y,OUT);if(fe>.6)dot(x+2,y-1,OUT)} // 上睫毛线
+    if(big){dot(x-1,y-3,PAL.hair[0]);dot(x,y-3,PAL.hair[0]);if(fe>.6)dot(x+1,y-3,PAL.hair[0])}});
+  const ck=QH(surf(HEAD,-606,-36));if(f(-608,-34)>.3)dot(ck[0],ck[1],'#e88a8a');
+  const m=QH(surf(HEAD,-592,6));if(f(-594,4)>.2){dot(m[0],m[1],PAL.skin[0]);if(big)dot(m[0]+1,m[1],PAL.skin[0])}
+  const n=QH(surf(HEAD,-610,12));if(f(-610,10)>.2)dot(n[0]+1,n[1],PAL.skin[0]);
+}
+
+// ---------- 背景：夜空、星星、地面（都是限色像素） ----------
+function stars(seed,n,y0,y1){let a=seed;const r=()=>{a=(a*1664525+1013904223)>>>0;return a/4294967296};const o=[];for(let i=0;i<n;i++)o.push([Math.floor(r()*LW),Math.floor(y0+r()*(y1-y0)),r()]);return o}
+const STARS=stars(7,46,4,200);
+function bg(t){
+  const bands=[[0,60,0],[60,120,1],[120,180,2],[180,240,3]];
+  bands.forEach(([a,b,k])=>{lg.fillStyle=SKY[k];lg.fillRect(0,a,LW,b-a);if(k<3){for(let y=b-4;y<b;y++)for(let x=(y%2);x<LW;x+=2)if((y-(b-4))>=2||x%4===0){lg.fillStyle=SKY[k+1];lg.fillRect(x,y,1,1)}}});
+  const fr=Math.floor(t*8);STARS.forEach(([x,y,b],i)=>{const tw=(i+fr)%11===0;dot(x,y,b>.7||tw?'#fff6e2':'#8c93c8')});
+  lg.fillStyle='#2a2440';lg.fillRect(0,236,LW,24);lg.fillStyle='#211c33';lg.fillRect(0,252,LW,8);
+  for(let x=0;x<LW;x+=2){lg.fillStyle='#352d52';lg.fillRect(x,236,1,1)}
+  lg.fillStyle='#e9dcc0';lg.fillRect(0,260,LW,LH-260);lg.fillStyle='#d8c8a6';lg.fillRect(0,372,LW,12);
+}
+// 3×5 像素数字，标转面图的角度
+const GL={'0':'111101101101111','3':'111001111001111','6':'111100111101111','9':'111101111001111','°':'010101010000000'};
+function label(s,x,y){let cx=x-Math.floor(s.length*4/2);for(const ch of s){const g=GL[ch];for(let i=0;i<15;i++)if(g[i]==='1')dot(cx+i%3,y+((i/3)|0),'#6d5f70');cx+=4}}
+
+function render(t){
+  const st=Math.floor(t*8)/8; // 每秒 8 张，像素动画常用的节奏
+  lg.setTransform(1,0,0,1,0,0);bg(st);
+  // 主图：3/4 侧身
+  lg.fillStyle='#1a1530';lg.fillRect(72,244,70,3);lg.fillRect(78,247,58,1);
+  const P=camera({yaw:30,pitch:10,s:.24,ox:106,oy:246});const c=character(P,st);const r=paint(c);details(c,P,r,true);
+  // 转面图
+  [0,30,60,90].forEach((yaw,i)=>{const x=30+i*52,Pp=camera({yaw,pitch:10,s:.1,ox:x,oy:362});
+    lg.fillStyle='#d1bf9a';lg.fillRect(x-14,361,28,2);const cc=character(Pp,0,false);const rr=paint(cc);details(cc,Pp,rr,false);label(String(yaw)+'°',x,276)});
+  ctx.imageSmoothingEnabled=false;ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(low,0,0,W,H);
+}
+window.VIDEO={W,H,FPS,DUR};
+window.renderFrame=n=>render(n/FPS);
+let t0=null;function loop(ts){if(t0===null)t0=ts;render(((ts-t0)/1000)%DUR);requestAnimationFrame(loop)}
+if(!navigator.webdriver)requestAnimationFrame(loop);else render(0);
+</script>
+</body>
+</html>
