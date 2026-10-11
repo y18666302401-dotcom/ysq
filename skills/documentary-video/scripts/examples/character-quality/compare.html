@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>角色造型对比</title>
+<style>
+:root{--bg:#F1E6D2;--fg:#2A1F33;--muted:#6D5F70;--accent:#E0563F}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;--accent:#FF7A5C;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;--accent:#FF7A5C;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans SC","PingFang SC",system-ui,sans-serif}
+main{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px}
+.stage,.note{width:min(calc(80vh * 9 / 16),calc(100vw - 32px),460px)}
+.stage{aspect-ratio:9/16;border-radius:18px;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+.note{margin:0;font-size:13px;line-height:1.7;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<div class="stage"><canvas id="cv" role="img" aria-label="角色造型前后对比：左边是几何体拼接，右边是整体造型"></canvas></div>
+<p class="note">左：每个部件单独描边的几何体拼接（原来的做法）。右：用 character_kit.js 画的同一个角色——一条合并的外轮廓、关节处边线淡出、粗细变化的四肢、沿轮廓的暗部和背光侧加粗的线。6 秒循环：呼吸、眨眼、尾巴摆动、抬手。</p>
+</main>
+<script src="../../character_kit.js"></script>
+<script>
+const W=1080,H=1920,FPS=24,DUR=6;
+const cv=document.getElementById('cv');cv.width=W;cv.height=H;
+const ctx=cv.getContext('2d');
+const K=CharKit,{blob,tube,move,rotate,scale,ink,figure,trace,ik2}=K;
+const clamp=K.clamp,lerp=K.lerp;
+const O='#2A1F33',LW=6;
+const C={fur:'#F39A3B',furD:'#D9772C',furSh:'#D9A890',stripe:'#C25E1E',belly:'#FFE9C9',pink:'#F48FA0',eye:'#F7E27A',
+  coat:'#3F5E8C',coatD:'#2E4870',coatSh:'#B7B9D2',pants:'#3A3346',pantsD:'#2B2536',skin:'#F6C7A0',skinSh:'#E9B6A0',
+  beard:'#DCD8D0',beardSh:'#C9C2C0',shoe:'#1E1825',shirt:'#F4EEE2',white:'#FFFFFF'};
+
+// ===================== 旧做法：几何体拼接（每块各描一圈边） =====================
+function oshape(path,fill){ctx.beginPath();path();ctx.fillStyle=fill;ctx.fill();ctx.lineWidth=LW;ctx.strokeStyle=O;ctx.lineJoin='round';ctx.stroke()}
+const oell=(x,y,rx,ry)=>()=>ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);
+function olimb(pts,w,fill){ctx.lineCap='round';ctx.lineJoin='round';
+  const p=()=>{ctx.beginPath();ctx.moveTo(...pts[0]);if(pts.length===3)ctx.quadraticCurveTo(...pts[1],...pts[2]);else ctx.lineTo(...pts[1])};
+  p();ctx.strokeStyle=O;ctx.lineWidth=w+LW*2;ctx.stroke();p();ctx.strokeStyle=fill;ctx.lineWidth=w;ctx.stroke()}
+function oldCat(t,b){
+  const br=1+.015*Math.sin(t*2.2),tail=Math.sin(t*1.6);
+  olimb([[-150,-130],[-210,-170+tail*30],[-215+tail*20,-260]],24,C.fur);
+  olimb([[-100,-110],[-104,-10]],28,C.furD);olimb([[110,-110],[100,-10]],28,C.furD);
+  ctx.save();ctx.translate(0,-140);ctx.scale(1,br);oshape(oell(0,0,160,62),C.fur);ctx.restore();
+  olimb([[-130,-110],[-134,-10]],28,C.fur);olimb([[90,-110],[86,-10]],28,C.fur);
+  [[-128,-8],[84,-8]].forEach(([x,y])=>oshape(oell(x+4,y,20,12),C.fur));
+  ctx.save();ctx.translate(150,-200);
+  oshape(()=>{ctx.moveTo(-48,-30);ctx.lineTo(-38,-92);ctx.lineTo(-8,-50);ctx.closePath()},C.fur);
+  oshape(()=>{ctx.moveTo(8,-50);ctx.lineTo(38,-92);ctx.lineTo(48,-30);ctx.closePath()},C.fur);
+  oshape(oell(0,0,62,56),C.fur);oshape(oell(0,22,30,20),C.belly);
+  [-22,22].forEach(x=>{oshape(()=>ctx.ellipse(x,-8,12,15*(1-b*.9),0,0,Math.PI*2),C.eye);ctx.fillStyle=O;ctx.beginPath();ctx.ellipse(x+2,-8,3.5,10*(1-b*.9),0,0,Math.PI*2);ctx.fill()});
+  ctx.restore();
+}
+function oldMan(t,b,raise){
+  olimb([[-26,-320],[-30,-20]],44,C.pantsD);olimb([[22,-320],[26,-20]],44,C.pants);
+  oshape(oell(-30,-12,34,16),C.shoe);oshape(oell(34,-12,34,16),C.shoe);
+  olimb([[-58,-540],[-66,-330]],40,C.coatD);
+  oshape(()=>ctx.roundRect(-80,-580,160,290,30),C.coat);
+  const sh=[60,-540],hand=[lerp(80,150,raise),lerp(-330,-610,raise)],el=ik2(sh,hand,120,120,-1);
+  olimb([sh,el],40,C.coat);olimb([el,hand],36,C.coat);oshape(oell(hand[0],hand[1],20,20),C.skin);
+  oshape(()=>ctx.roundRect(-18,-620,36,50,8),C.skin);
+  ctx.save();ctx.translate(0,-680);oshape(oell(0,0,62,72),C.skin);oshape(oell(4,50,52,46),C.beard);
+  oshape(oell(62,4,14,18),C.skin);oshape(oell(-58,0,14,20),C.skin);
+  ctx.fillStyle=O;ctx.beginPath();ctx.ellipse(28,-10,6,9*(1-b*.9),0,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+
+// ===================== 新做法：整体造型（character_kit） =====================
+// 猫：侧身朝右，地面 y=0。所有形状每帧按时间算（呼吸、尾巴），只画一次合并轮廓。
+const TORSO=[[-176,-152],[-150,-178],[-80,-190],[-10,-182],[60,-196],[118,-214],[156,-172],[146,-120],[112,-96],[30,-88],[-50,-94],[-104,-104],[-150,-118]];
+function newCat(t,b){
+  const br=Math.sin(t*2.2),sway=Math.sin(t*1.6),sway2=Math.sin(t*1.6-1.1);
+  // 呼吸：肚皮和胸口的点上下动，背线几乎不动
+  const torso=blob(TORSO.map(([x,y])=>[x,y+(y>-130?br*3:br*.6)]));
+  const tail=tube([[-140,-150],[-214,-170+sway*10],[-246,-222+sway*16],[-236+sway2*22,-290],[-204+sway2*36,-316]],[[0,19],[.18,14],[.85,12],[1,13]]);
+  const legF=dx=>tube([[100+dx,-150],[95+dx,-86],[103+dx,-26],[106+dx,-14]],[[0,30],[.3,22],[.6,14],[.88,12],[1,13]]);
+  const legR=dx=>tube([[-116+dx,-126],[-148+dx,-58],[-142+dx,-16]],[[0,32],[.45,16],[.8,13],[1,13]]);
+  const paw=(x)=>blob([[x-16,-4],[x-14,-18],[x+2,-24],[x+18,-18],[x+24,-6],[x+14,0],[x-8,0]]);
+  const far={line:O,lw:LW};
+  // 远侧两条腿：一层，颜色深一档
+  figure(ctx,[{parts:[{pts:legF(-30),fill:C.furD,shade:C.furSh},{pts:paw(70),fill:C.furD,shade:C.furSh},{pts:legR(28),fill:C.furD,shade:C.furSh},{pts:paw(-118),fill:C.furD,shade:C.furSh}]}],far);
+  // 身体 + 尾巴：同一层，尾巴从臀部长出来，没有接缝
+  const stripes=g=>{
+    [[-120,-188,-118,-120],[-80,-196,-76,-130],[-40,-192,-34,-136],[0,-188,8,-140],[40,-196,50,-150]].forEach(([x0,y0,x1,y1],i)=>
+      ink(g,[[x0,y0],[lerp(x0,x1,.5)-6,lerp(y0,y1,.5)],[x1,y1]],13-i*.6,C.stripe,{taper:[.9,.05]}));
+    g.fillStyle=C.belly;trace(g,blob([[150,-160],[156,-110],[110,-90],[20,-84],[-60,-90],[-20,-110],[60,-114],[118,-130]]));g.fill();
+  };
+  const tailRings=g=>{[.35,.55,.75].forEach(u=>{const i=Math.round(u*39),q=tail[i],r=tail[tail.length-1-i];ink(g,[q,[lerp(q[0],r[0],.5)+4,lerp(q[1],r[1],.5)],r],10,C.stripe,{taper:[.2,.2]})})};
+  figure(ctx,[{parts:[{pts:tail,fill:C.fur,shade:C.furSh,detail:tailRings},{pts:torso,fill:C.fur,shade:C.furSh,detail:stripes}], // 尾巴先填色，躯干盖住尾巴根
+    after:g=>{ink(g,[[-108,-170],[-94,-142],[-102,-110]],5,O,{taper:[.1,.1]})} // 大腿肌肉的转折线，表现体块
+  }],far);
+  // 近侧的腿：边线在关节处淡出，看起来是从身体里长出来的
+  figure(ctx,[{parts:[{pts:legR(0),fill:C.fur,shade:C.furSh},{pts:paw(-146),fill:C.fur,shade:C.furSh},{pts:legF(0),fill:C.fur,shade:C.furSh},{pts:paw(98),fill:C.fur,shade:C.furSh}],
+    joins:[{at:[-116,-126],r:46,into:torso},{at:[100,-150],r:62,into:torso}],
+    after:g=>{[[-146,-6],[-138,-4],[98,-6],[106,-4]].forEach(([x,y])=>ink(g,[[x,y-12],[x,y]],3.5,O))}}],far);
+  // 头：耳朵、腮毛都在同一条轮廓里；后脑和脖子相接处边线淡出
+  ctx.save();ctx.translate(150,-214);ctx.rotate(.04*Math.sin(t*1.1));
+  const head=blob([[-62,-28],[-55,-96],[-50,-99],[-20,-52],[0,-58],[22,-54],[50,-102],[56,-99],[64,-28],[76,6],[86,26],[70,30],[76,44],[48,56],[8,62],[-36,56],[-64,44],[-58,34],[-80,24],[-74,0]]);
+  const headDetail=g=>{
+    g.fillStyle=C.pink;[[-1,1],[1,1]].forEach(([s])=>{trace(g,blob([[s*-48,-36],[s*-48,-80],[s*-26,-50]].map(([x,y])=>[x+(s>0?0:0),y])));g.fill()});
+    g.fillStyle=C.belly;trace(g,blob([[-38,30],[-20,10],[0,16],[20,10],[40,28],[30,52],[0,58],[-30,52]]));g.fill();
+    [[-14,-56,-10,-34],[2,-58,2,-32],[18,-56,12,-34]].forEach(([a,b2,c,d])=>ink(g,[[a,b2],[c,d]],8,C.stripe,{taper:[.9,.1]}));
+    [[-74,6,-54,12],[-76,22,-58,22],[74,4,56,10],[78,20,60,20]].forEach(([a,b2,c,d])=>ink(g,[[a,b2],[c,d]],7,C.stripe,{taper:[.9,.1]}));
+  };
+  figure(ctx,[{parts:[{pts:head,fill:C.fur,shade:C.furSh,detail:headDetail}],joins:[{at:[-56,40],r:34,into:move(torso,-150,214)}],
+    after:g=>{
+      const op=1-b*.92;
+      [[-24,-6,-1],[24,-6,1]].forEach(([x,y,s])=>{
+        g.save();g.translate(x,y);g.scale(1,op);
+        const eye=blob([[-15*s,3],[-8*s,-9],[4*s,-11],[15*s,-3],[8*s,8],[-6*s,9]],8);
+        trace(g,eye);g.fillStyle=C.eye;g.fill();g.save();trace(g,eye);g.clip();
+        g.fillStyle=O;g.beginPath();g.ellipse(3*s,-1,4.5,10,0,0,Math.PI*2);g.fill();
+        g.fillStyle='rgba(194,94,30,.35)';g.fillRect(-20,-14,40,7);g.restore();
+        g.fillStyle=C.white;g.beginPath();g.arc(5*s,-5,2.4,0,Math.PI*2);g.fill();
+        g.restore();
+        ink(g,[[x-17*s,y+2-6*op],[x-6*s,y-10*op],[x+10*s,y-11*op],[x+18*s,y-2*op]],5.5,O,{taper:[.3,.5]}); // 上眼皮
+      });
+      trace(g,blob([[-8,20],[8,20],[2,29],[-2,29]],6));g.fillStyle=C.pink;g.fill();
+      ink(g,[[0,29],[0,35],[-7,40],[-14,38]],4,O);ink(g,[[0,35],[7,40],[14,38]],4,O);
+      [[-22,34,-84,26],[-22,40,-82,44],[22,34,86,26],[22,40,84,44]].forEach(([a,b2,c,d])=>ink(g,[[a,b2],[lerp(a,c,.5),lerp(b2,d,.5)-4],[c,d]],2.6,O,{taper:[.6,.05]}));
+    }}],far);
+  ctx.restore();
+}
+// 人物：19 世纪学者（马雷那样的造型），微侧身朝右。
+function newMan(t,b,raise){
+  const br=Math.sin(t*2.2);
+  const S={line:O,lw:LW};
+  const leg=(hx,kx,ax,w)=>tube([[hx,-330],[kx,-176],[ax,-30]],[[0,w],[.42,w*.74],[.58,w*.8],[.8,w*.66],[1,w*.6]],{cap1:'flat'});
+  const shoe=x=>blob([[x-28,-34],[x+6,-36],[x+30,-22],[x+44,-8],[x+40,0],[x-30,0],[x-34,-14]]);
+  const coat=blob([[-70,-546],[-40,-578],[0,-588],[44,-580],[76,-548],[70,-470],[58,-400],[66,-330],[74,-286],[20,-280],[-30,-284],[-82,-292],[-74,-360],[-70,-440],[-78,-520]].map(([x,y])=>[x+(x>0?br*1.2:-br*.6),y]));
+  // 远侧：后腿、后手臂
+  figure(ctx,[{parts:[{pts:leg(-14,-20,-30,30),fill:C.pantsD},{pts:shoe(-40),fill:C.shoe}]},
+    {parts:[{pts:tube([[-52,-536],[-84,-444],[-82,-352]],[[0,26],[.45,20],[.55,19],[1,15]]),fill:C.coatD},{pts:blob([[-96,-362],[-70,-364],[-64,-338],[-80,-320],[-96,-332]]),fill:C.skin}]}],S);
+  figure(ctx,[{parts:[{pts:leg(26,32,22,32),fill:C.pants,shade:'#CFC6DA'},{pts:shoe(14),fill:C.shoe}]}],S);
+  // 外套：一整块，衣摆、腰身、翻领都在轮廓或内部线里
+  figure(ctx,[{parts:[{pts:coat,fill:C.coat,shade:C.coatSh,shadeDepth:26,detail:g=>{
+      g.fillStyle=C.coatD;trace(g,blob([[6,-584],[40,-580],[30,-520],[10,-470],[4,-520]]));g.fill();
+      g.fillStyle=C.shirt;trace(g,blob([[-8,-588],[14,-588],[10,-540],[0,-520],[-6,-548]]));g.fill();
+    }}],after:g=>{
+      ink(g,[[4,-520],[10,-430],[18,-330],[22,-286]],4.5,O,{taper:[.2,.6]});
+      ink(g,[[-40,-410],[-10,-404],[30,-412]],3.5,O,{taper:[.1,.1]});
+      [[16,-470],[18,-420]].forEach(([x,y])=>{g.fillStyle='#E7B54A';g.beginPath();g.arc(x,y,5,0,7);g.fill()});
+      ink(g,[[40,-380],[48,-330],[46,-300]],3,O);
+    }}],S);
+  // 头：头型、鼻子、耳朵、胡子都合并在一条轮廓里，脖子藏在胡子下
+  ctx.save();ctx.translate(0,-668+br*.8);ctx.rotate(.03*Math.sin(t*.9));
+  const skull=blob([[-60,-30],[-52,-70],[-16,-92],[30,-86],[56,-56],[60,-24],[70,-8],[80,6],[74,16],[62,18],[60,34],[30,50],[-30,48],[-58,20]]);
+  const beard=blob([[-56,4],[-40,30],[0,40],[40,30],[62,24],[64,54],[46,96],[16,122],[-14,116],[-40,90],[-58,48]]);
+  const hair=blob([[-66,-20],[-62,-56],[-44,-62],[-38,-30],[-30,2],[-46,26],[-62,20]]);
+  figure(ctx,[{parts:[{pts:skull,fill:C.skin,shade:C.skinSh,detail:g=>{
+      g.fillStyle='rgba(232,120,110,.28)';g.beginPath();g.ellipse(46,18,13,8,0,0,7);g.fill();
+      g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(-8,-74,22,10,-.3,0,7);g.fill();
+    }},{pts:hair,fill:C.beard,shade:C.beardSh},{pts:beard,fill:C.beard,shade:C.beardSh,detail:g=>{
+      [[-30,60,-20,100],[0,64,4,108],[26,58,30,92]].forEach(([a,b2,c,d])=>ink(g,[[a,b2],[c,d]],4,'#B5B0A6',{taper:[.1,.1]}));
+    }}],after:g=>{
+      trace(g,blob([[-38,-14],[-22,-22],[-16,0],[-26,14],[-40,6]],6));g.fillStyle=C.skin;g.fill();g.lineWidth=4;g.strokeStyle=O;g.stroke(); // 耳朵
+      ink(g,[[-30,-8],[-24,0],[-30,6]],3,O);
+      const op=1-b*.92;
+      g.save();g.translate(38,-16);g.scale(1,op);g.fillStyle=O;g.beginPath();g.ellipse(0,0,5.5,8.5,0,0,7);g.fill();g.fillStyle=C.white;g.beginPath();g.arc(2,-3,2,0,7);g.fill();g.restore();
+      ink(g,[[24,-30],[38,-36],[52,-30]],6,'#9A948C',{taper:[.4,.2]}); // 眉
+      ink(g,[[44,26],[54,30],[64,26]],4,O,{taper:[.2,.2]}); // 嘴角（藏在胡子边）
+    }}],S);
+  ctx.restore();
+  // 近侧手臂：上臂、前臂、手是一层，肘部是圆顺的弯；肩部边线淡进外套里
+  const sh=[50,-544],hand=[lerp(70,140,raise),lerp(-340,-640,raise)],el=ik2(sh,hand,126,118,-1);
+  // 急弯的关节拆成两段、各带圆头，放在同一层：合并轮廓后肘部自然圆顺（一根管子急弯时内侧会自相交）
+  const upper=tube([sh,[lerp(sh[0],el[0],.5)+3,lerp(sh[1],el[1],.5)],el],[[0,30],[.5,26],[1,22]]);
+  const fore=tube([el,[lerp(el[0],hand[0],.4),lerp(el[1],hand[1],.4)],hand],[[0,22],[.25,23],[1,17]],{cap0:'round',cap1:'flat'});
+  const ang=Math.atan2(hand[1]-el[1],hand[0]-el[0]);
+  const palm=move(rotate(blob([[0,-14],[20,-18],[36,-12],[40,2],[32,14],[10,16],[-2,10]]),ang),hand[0],hand[1]);
+  const thumb=move(rotate(blob([[8,-12],[22,-24],[30,-22],[24,-10]]),ang),hand[0],hand[1]);
+  const cuff=move(rotate(blob([[-6,-18],[6,-18],[6,18],[-6,18]]),ang),hand[0],hand[1]);
+  figure(ctx,[{parts:[{pts:palm,fill:C.skin,shade:C.skinSh,shadeDepth:8},{pts:thumb,fill:C.skin}]},
+    {parts:[{pts:upper,fill:C.coat,shade:C.coatSh,shadeDepth:12},{pts:fore,fill:C.coat,shade:C.coatSh,shadeDepth:12},{pts:cuff,fill:C.shirt,shade:false}],joins:[{at:sh,r:60,into:coat}],
+     after:g=>{const a1=Math.atan2(el[1]-sh[1],el[0]-sh[0]),a2=Math.atan2(hand[1]-el[1],hand[0]-el[0]),m=(a1+a2)/2,k=[el[0]+Math.cos(m+Math.PI/2)*-8,el[1]+Math.sin(m+Math.PI/2)*-8];
+       ink(g,[[k[0]-Math.cos(m)*14,k[1]-Math.sin(m)*14],k,[k[0]+Math.cos(m)*8,k[1]+Math.sin(m)*8]],3.5,O)}}],S); // 肘窝的褶
+}
+
+// ===================== 场景 =====================
+function cell(x,y,w,h,bg,title,sub){
+  ctx.fillStyle=bg;ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='rgba(0,0,0,.06)';ctx.beginPath();ctx.ellipse(x+w/2,y+h-110,w*.36,22,0,0,7);ctx.fill();
+  ctx.fillStyle=O;ctx.font='900 40px "Noto Sans SC",sans-serif';ctx.textAlign='center';ctx.fillText(title,x+w/2,y+72);
+  ctx.fillStyle='rgba(42,31,51,.62)';ctx.font='500 26px "Noto Sans SC",sans-serif';ctx.fillText(sub,x+w/2,y+112);
+}
+function render(t){
+  const step=Math.floor(t*12)/12; // 一拍二
+  const blink=(()=>{const u=(step%3.1);return u>2.85?1:0})();
+  const raise=.5-.5*Math.cos(Math.min(1,Math.max(0,(step-1)/4))*Math.PI*2);
+  ctx.setTransform(1,0,0,1,0,0);
+  cell(0,0,540,960,'#F4DDB2','旧：几何体拼接','每块各描一圈边');
+  cell(540,0,540,960,'#F4DDB2','新：整体造型','合并轮廓 · 粗细变化');
+  cell(0,960,540,960,'#EAD3A6','','');cell(540,960,540,960,'#EAD3A6','','');
+  ctx.fillStyle=O;ctx.fillRect(538,0,4,H);ctx.fillRect(0,958,W,4);
+  ctx.save();ctx.translate(290,850);ctx.scale(.94,.94);oldCat(step,blink);ctx.restore();
+  ctx.save();ctx.translate(836,850);ctx.scale(.94,.94);newCat(step,blink);ctx.restore();
+  ctx.save();ctx.translate(250,1840);oldMan(step,blink,raise);ctx.restore();
+  ctx.save();ctx.translate(790,1840);newMan(step,blink,raise);ctx.restore();
+}
+window.VIDEO={W,H,FPS,DUR};
+window.renderFrame=n=>render(n/FPS);
+let t0=null;function loop(ts){if(t0===null)t0=ts;render(((ts-t0)/1000)%DUR);requestAnimationFrame(loop)}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>{if(!navigator.webdriver)requestAnimationFrame(loop);else render(0)});
+</script>
+</body>
+</html>

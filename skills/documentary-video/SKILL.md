@@ -44,7 +44,7 @@ description: 用 Claude Code + HyperFrames 制作不露脸纪录片短视频的�
 |---|---|---|---|
 | 1 选题 | 01-topics.md | TOPICS.md | 用户选定选题 |
 | 2 脚本 | 02-script.md | script.md、NOTES.md | 用户确认脚本 |
-| 3 本期视觉设定 | 03-visual.md | PROJECT.md 的"本期视觉设定" | 用户确认设定（含角色设计稿） |
+| 3 本期视觉设定 | 03-visual.md、characters.md | PROJECT.md 的"本期视觉设定" | 用户确认设定（含角色设计稿） |
 | 4 分镜 | 04-storyboard.md | STORYBOARD.md | 用户确认分镜 |
 | 5 素材与参考 | 05-assets.md | assets/、assets/SOURCES.md | 确认参考资料清单；确认重绘样图 |
 | 6 配音对时 | 06-voice.md、audio.md | audio/、更新后的 STORYBOARD.md | 交检查报告，用户试听全片确认；确定 BGM 来源 |
@@ -85,6 +85,7 @@ description: 用 Claude Code + HyperFrames 制作不露脸纪录片短视频的�
 ## 附带脚本
 
 - `scripts/tts_gemini.py`：用 Gemini TTS 生成配音。默认 `--whole` 整段一次生成（分镜分界在句末才加长停顿，句子中间不加）；备用逐段模式会自动重试、记录真实时长。遇到当日额度用完会立即停止。用法见 06-voice.md。
+- `scripts/character_kit.js`：角色造型工具库——平滑闭合轮廓（`blob`）、粗细变化的四肢尾巴（`tube`）、同层合并轮廓 + 关节处边线淡出 + 沿轮廓的暗部（`figure`）、两头收尖的线（`ink`）。三种画风的人物和动物都用它画，避免"几何体拼接"的感觉。用法见 references/characters.md，前后对比样片在 `scripts/examples/character-quality/`。
 - `scripts/flat_toolkit.js`：扁平插画的动画工具库——色块液体变形、链条/绳子物理（下落、被拽住、摆动）、两段关节手臂、canvas → ffmpeg 渲染管线。用法见 styles/flat.md 的“实现工具”。
 - `scripts/examples/carrington-10s/`：用户确认过效果的 10 秒一镜到底示例（画面 + 声音），做扁平插画动画前先读它。
 - `scripts/examples/sky-blue-15s/sky.html`：用户确认过效果的 Canvas 光影样片（15 秒竖屏），做这种画风前先读它。用浏览器直接打开就能拖时间轴预览。
