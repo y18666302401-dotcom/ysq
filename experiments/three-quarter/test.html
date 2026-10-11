@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3/4 侧身角色测试</title>
+<style>
+:root{--bg:#F1E6D2;--fg:#2A1F33;--muted:#6D5F70}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17121C;--fg:#F1E6D2;--muted:#A897A8;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:"Noto Sans SC","PingFang SC",system-ui,sans-serif}
+main{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px}
+.stage,.note{width:min(calc(80vh * 9 / 16),calc(100vw - 32px),460px)}
+.stage{aspect-ratio:9/16;border-radius:18px;overflow:hidden}
+canvas{width:100%;height:100%;display:block}
+.note{margin:0;font-size:13px;line-height:1.7;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+<div class="stage"><canvas id="cv" role="img" aria-label="3/4 侧身的学者和猫，以及同一个角色从正面到侧面的转面图"></canvas></div>
+<p class="note">实验：角色在轻量 3D 里用截面圈搭成，按转身角度投影后描一条合并轮廓。上：学者 3/4 侧身（身体转 32°，头在 22°–42° 之间转动），抬手讲解，胡子和衣摆晚一拍跟随。中：猫 3/4 侧身，头转向镜头，尾巴弹簧摆动。下：同一份造型在 0°/20°/35°/55°/80° 的转面图。</p>
+</main>
+<script src="../../skills/documentary-video/scripts/character_kit.js"></script>
+<script src="kit3q.js"></script>
+<script>
+const W=1080,H=1920,FPS=24,DUR=8;
+const cv=document.getElementById('cv');cv.width=W;cv.height=H;
+const ctx=cv.getContext('2d');
+const {blob,tube,figure,trace}=CharKit;
+const {camera,rotY,rotX,surf,surfNormal,sliceAt,sliceAtZ,ringY,ringZ,hull,sweepPolys,silhouette,ik3,follow,brush,lerp,clamp}=K3;
+const O='#2A1F33';
+const C={coat:'#3F5E8C',coatD:'#2E4870',coatSh:'#B9BCD6',pants:'#3A3346',pantsD:'#2B2536',pantsSh:'#CFC6DA',skin:'#F6C7A0',skinD:'#E9AE88',skinSh:'#EDB9A2',
+  beard:'#DCD8D0',beardD:'#BDB7AE',beardSh:'#CCC4C2',shoe:'#1E1825',shirt:'#F4EEE2',brass:'#E7B54A',cheek:'rgba(232,120,110,.28)',
+  fur:'#F39A3B',furD:'#D9772C',furSh:'#DDAA92',stripe:'#C25E1E',belly:'#FFE9C9',pink:'#F48FA0',eye:'#F7E27A',white:'#FFFFFF'};
+const ss=(a,b,x)=>{const k=clamp((x-a)/(b-a));return k*k*(3-2*k)};
+const blinkAt=(t,list)=>list.reduce((m,b)=>Math.max(m,1-Math.abs(t-b)/.09),0);
+
+// ===================== 学者 =====================
+// 动作曲线（都只由时间决定）
+const raiseF=t=>ss(1.6,2.6,t)-ss(5.6,6.6,t);               // 抬手讲解
+const headTurnF=t=>10*Math.sin((t-.5)*.9)+6*raiseF(t);      // 头相对身体的转动（度）
+const nodF=t=>3*Math.sin(t*1.7)*raiseF(t);                  // 讲话时点头
+const beardLag=follow(t=>headTurnF(t),{k:30,c:5,T:DUR+1});  // 胡子跟着头转，晚一拍
+const nodLag=follow(nodF,{k:40,c:6,T:DUR+1});
+const hemLag=follow(t=>raiseF(t)*6+Math.sin(t*2.2)*1.2,{k:20,c:4,T:DUR+1}); // 抬手带动身体微转，衣摆晚一拍
+const TORSO=[{y:-596,rx:34,rz:30,cz:4},{y:-572,rx:76,rz:42},{y:-540,rx:78,rz:48},{y:-500,rx:72,rz:52,cz:6},{y:-430,rx:70,rz:56,cz:12},{y:-360,rx:70,rz:50,cz:6},{y:-300,rx:78,rz:54}];
+const HEAD=[{y:-772,rx:8,rz:8},{y:-762,rx:38,rz:44},{y:-740,rx:52,rz:60},{y:-708,rx:56,rz:64,cz:-2},{y:-676,rx:52,rz:58},{y:-654,rx:44,rz:50,cz:2},{y:-638,rx:30,rz:36,cz:10}];
+const BEARD=[{y:-690,rx:50,rz:42,cz:14},{y:-660,rx:56,rz:48,cz:22},{y:-620,rx:48,rz:38,cz:30},{y:-585,rx:26,rz:20,cz:34},{y:-566,rx:6,rz:6,cz:32}];
+function scholar(P,t,{lw=6,anim=true}={}){
+  const br=Math.sin(t*2.2),raise=anim?raiseF(t):0,turn=anim?headTurnF(t):0,nod=anim?nodLag(t):0,blink=anim?blinkAt(t,[1.3,4.4,7.1]):0;
+  const S={line:O,lw,weight:lw*.6};
+  const head0=[0,-650,8]; // 头绕脖子转
+  const HP=p=>{let q=rotY(p,turn,head0);q=rotX(q,nod,head0);return P(q)};
+  const BP=(p,k=0)=>HP(rotY(p,(anim?beardLag(t):0)-turn,head0)); // 胡子：跟着头转，但晚一拍
+  const sweep=(sl,proj,n=26,f=c=>c)=>{const R=[];for(let y=sl[0].y;y<=sl[sl.length-1].y+1e-6;y+=6){R.push(ringY(f(sliceAt(sl,y)),n).map(proj))}return silhouette(sweepPolys(R))};
+  // 躯干：呼吸时胸口截面变大一点，衣摆跟随
+  const hem=anim?hemLag(t):0;
+  const torso=sweep(TORSO,p=>P(p),26,c=>({...c,rx:c.rx*(1+(c.y<-480&&c.y>-560?br*.012:0)),cx:(c.cx||0)+(c.y>-380?hem*(c.y+380)/-80:0)}));
+  // 腿、鞋
+  const leg=(x,front)=>{const hip=[x,-330,0],ank=[x*1.05,-34,front?6:-4],{E}=ik3(hip,ank,152,148,[0,0,1]);
+    return tube([hip,E,ank].map(P).map(q=>[q[0],q[1]]),[[0,30*P.s],[.42,23*P.s],[.56,25*P.s],[.85,20*P.s],[1,19*P.s]].map(([u,w])=>[u,w]),{cap1:'flat'})};
+  const shoe=x=>hull([[x-14,-34,-16],[x+14,-34,-16],[x-16,-2,-20],[x+16,-2,-20],[x-18,-2,40],[x+18,-2,40],[x-12,-16,48],[x+12,-16,48],[x-14,-32,20],[x+14,-32,20]].map(P).map(q=>[q[0],q[1]]));
+  // 手臂：近侧（-x）抬手讲解，远侧自然下垂
+  const arm=(side)=>{const sh=[side*58,-542,-2];
+    const rest=[side*74,-330,18],up=[side*166,-472,46],tgt=side<0?[lerp(rest[0],up[0],raise),lerp(rest[1],up[1],raise),lerp(rest[2],up[2],raise)]:rest;
+    const {E,H}=ik3(sh,tgt,128,120,side<0?[lerp(.5,-.1,raise)*side,lerp(.2,1,raise),-1]:[side*.5,.2,-1]);
+    const s2=P(sh),e2=P(E),h2=P(H),w=P.s;
+    return {upper:tube([s2,e2].map(q=>[q[0],q[1]]),[[0,28*w],[.6,24*w],[1,22*w]]),fore:tube([e2,h2].map(q=>[q[0],q[1]]),[[0,22*w],[.3,23*w],[1,17*w]],{cap0:'round',cap1:'flat'}),
+      s2,e2,h2,ang:Math.atan2(h2[1]-e2[1],h2[0]-e2[0])}};
+  const hand=(a,open)=>{const k=P.s,mv=pts=>CharKit.move(CharKit.rotate(pts.map(([x,y])=>[x*k,y*k]),a.ang),a.h2[0],a.h2[1]);
+    return {palm:mv(blob(open?[[0,-14],[22,-20],[40,-16],[46,-4],[40,10],[16,16],[-2,10]]:[[0,-14],[20,-18],[34,-12],[38,2],[30,14],[10,16],[-2,10]])),thumb:mv(blob(open?[[10,-12],[20,-30],[28,-30],[26,-14]]:[[8,-12],[22,-24],[30,-22],[24,-10]])),cuff:mv(blob([[-6,-19],[6,-19],[6,19],[-6,19]]))}};
+  const near=arm(-1),far=arm(1),hn=hand(near,raise>.5),hf=hand(far,false);
+  // 远侧：后腿、后手臂（颜色深一档）
+  figure(ctx,[{parts:[{pts:leg(32,false),fill:C.pantsD},{pts:shoe(34),fill:C.shoe}]},
+    {parts:[{pts:hf.palm,fill:C.skinD},{pts:far.upper,fill:C.coatD},{pts:far.fore,fill:C.coatD},{pts:hf.cuff,fill:'#CFC7B8'}]}],S);
+  figure(ctx,[{parts:[{pts:leg(-30,true),fill:C.pants,shade:C.pantsSh},{pts:shoe(-30),fill:C.shoe}]}],S);
+  // 外套：一整块放样体，正面的开襟线、翻领、纽扣都贴在表面上，3/4 视角下自动偏向远侧
+  const onT=(y,phi)=>P(surf(TORSO,y,phi)),vis=(y,phi)=>P.facing(surfNormal(TORSO,y,phi))>0;
+  figure(ctx,[{parts:[{pts:torso,fill:C.coat,shade:C.coatSh,shadeDepth:26*P.s,detail:g=>{
+      g.fillStyle=C.shirt;trace(g,[[-598,-30],[-598,30],[-526,5],[-526,-1]].map(([y,p])=>onT(y,p)));g.fill();
+      g.fillStyle=C.coatD;[[-1],[1]].forEach(([s])=>{trace(g,blob([[-598,s*30],[-526,s*3],[-540,s*14],[-590,s*42]].map(([y,p])=>onT(y,p)),4));g.fill()});
+    }}],after:g=>{
+      const line=[];for(let y=-520;y<=-300;y+=10)line.push(onT(y,4));brush(g,line,4.5*Math.max(.6,P.s),O,{start:.1,end:.3});
+      const belt=[];for(let p=-60;p<=60;p+=6)if(vis(-410,p))belt.push(onT(-410,p));if(belt.length>2)brush(g,belt,3.4*Math.max(.6,P.s),O,{start:.3,end:.3});
+      [-480,-445].forEach(y=>{if(vis(y,14)){const q=onT(y,14);g.fillStyle=C.brass;g.beginPath();g.arc(q[0],q[1],5*P.s,0,7);g.fill()}});
+      const fold=[];for(let y=-390;y<=-310;y+=8)fold.push(onT(y,-40+(y+390)*.08));brush(g,fold,3*Math.max(.6,P.s),O,{start:.4,end:.2});
+    }}],S);
+  // 头：放样的头 + 胡子 + 鼻子 + 近侧耳朵 + 头发，同一层合并轮廓；远侧耳朵在后面一层
+  const ear=side=>{const c=[side*52,-694,-16],nrm=[side*.85,0,.35],tz=[-nrm[2],0,nrm[0]];const o=[];for(let i=0;i<14;i++){const a=i/14*Math.PI*2;o.push(HP([c[0]+tz[0]*12*Math.cos(a)+nrm[0]*2,c[1]+18*Math.sin(a),c[2]+tz[2]*12*Math.cos(a)]))}return blob(o.map(q=>[q[0],q[1]]),4)};
+  const earVis=side=>{const n=rotY([side,0,.3],turn);return P.facing(n)>-.5};
+  const headS=sweep(HEAD,HP,28);
+  const beardS=sweep(BEARD,BP,24);
+  const nose=hull([[0,-722,60],[-10,-690,66],[10,-690,66],[0,-684,84],[-11,-676,62],[11,-676,62],[0,-674,70]].map(HP).map(q=>[q[0],q[1]]));
+  const hairR=[];for(let y=-728;y<=-660;y+=6){const c=sliceAt(HEAD,y),k=1.07+.04*Math.sin((y+728)/68*Math.PI);hairR.push(ringY({...c,rx:c.rx*k,rz:c.rz*k,cz:(c.cz||0)-6},24).map(HP))}
+  const hair=silhouette(sweepPolys(hairR)); // 头发是一圈比头略大的壳，放在头后面填色：只有从后脑轮廓鼓出来的部分看得见
+  const farEar=ear(1),nearEar=ear(-1);
+  const headVis=(y,phi)=>P.facing(rotY(surfNormal(HEAD,y,phi),turn))>.12;
+  figure(ctx,[{parts:[{pts:farEar,fill:C.skinD}]},
+    {parts:[{pts:hair,fill:C.beard,shade:C.beardSh},{pts:headS,fill:C.skin,shade:C.skinSh,shadeDepth:16*P.s,detail:g=>{
+        const ck=HP(surf(HEAD,-680,-34,1));g.fillStyle=C.cheek;g.beginPath();g.ellipse(ck[0],ck[1],13*P.s,8*P.s,0,0,7);g.fill();
+        const hl=HP(surf(HEAD,-752,-30,1));g.fillStyle='rgba(255,255,255,.35)';g.beginPath();g.ellipse(hl[0],hl[1],22*P.s,9*P.s,-.4,0,7);g.fill();}},
+      {pts:nearEar,fill:C.skin},{pts:beardS,fill:C.beard,shade:C.beardSh,shadeDepth:14*P.s,detail:g=>{
+        [-30,-6,18].forEach(p=>{const l=[];for(let y=-640;y<=-590;y+=10)l.push(BP(surf(BEARD,y,p,.98)));brush(g,l,3.4*P.s,C.beardD,{start:.4,end:.4})})}},
+      {pts:nose,fill:C.skin,shade:false}],
+     after:g=>{
+       const k=Math.max(.55,P.s);
+       // 耳朵内的线
+       if(earVis(-1)){const e=HP([-56,-694,-6]);brush(g,[[e[0]+3*k,e[1]-8*k],[e[0]-3*k,e[1]],[e[0]+2*k,e[1]+7*k]],3*k,O)}
+       // 鼻子：3/4 视角的鼻梁线 + 鼻翼，只画远离观众的那一侧
+       const nb=HP([4,-700,70]),nt=HP([3,-684,84]),nn=HP([0,-676,72]),nw=HP([12,-678,64]);brush(g,[nb,nt,nn],3.4*k,O,{start:.7,end:.3});brush(g,[nn,[lerp(nn[0],nw[0],.5),nw[1]+2*k],nw],3*k,O,{start:.3,end:.6});
+       // 眼睛：贴在头的表面，远侧的眼睛自动变窄
+       [[-30],[30]].forEach(([phi])=>{const n=rotY(surfNormal(HEAD,-704,phi),turn),f=P.facing([n[0]/Math.hypot(n[0],n[2]),0,n[2]/Math.hypot(n[0],n[2])]);if(f<.12)return;
+         const q=HP(surf(HEAD,-704,phi)),wE=12*f*P.s,hE=8*P.s*(1-blink*.92);
+         g.save();g.translate(q[0],q[1]);
+         g.fillStyle=C.white;g.beginPath();g.ellipse(0,0,wE,Math.max(.5,hE),0,0,7);g.fill();
+         g.fillStyle=O;g.beginPath();g.ellipse(wE*.25,0,Math.min(wE*.6,5*P.s),Math.max(.5,hE*.85),0,0,7);g.fill();g.restore();
+         brush(g,[[q[0]-wE*1.1,q[1]+1],[q[0],q[1]-hE*1.15],[q[0]+wE*1.15,q[1]-1]],4*k,O,{start:.25,end:.5});
+         const b0=HP(surf(HEAD,-724,phi-14)),b1=HP(surf(HEAD,-728,phi+12));brush(g,[b0,[lerp(b0[0],b1[0],.5),lerp(b0[1],b1[1],.5)-3*k],b1],6*k,'#9A948C',{start:.3,end:.6});
+       });
+       // 胡子下的嘴角
+       const m0=BP(surf(BEARD,-686,-14,1.0)),m1=BP(surf(BEARD,-686,16,1.0));brush(g,[m0,[lerp(m0[0],m1[0],.5),lerp(m0[1],m1[1],.5)+4*k],m1],3.4*k,C.beardD);
+     }}],S);
+  // 近侧手臂最后画：抬起时在胡子前面
+  // 手和手臂谁在前，按深度定：手伸向镜头时手在前，垂在身侧时手藏在袖口后
+  const handL={parts:[{pts:hn.palm,fill:C.skin,shade:C.skinSh,shadeDepth:8*P.s},{pts:hn.thumb,fill:C.skin}]};
+  const armL={parts:[{pts:near.upper,fill:C.coat,shade:C.coatSh,shadeDepth:12*P.s},{pts:near.fore,fill:C.coat,shade:C.coatSh,shadeDepth:12*P.s},{pts:hn.cuff,fill:C.shirt,shade:false}],
+     joins:[{at:near.s2,r:58*P.s,into:torso}]};
+  figure(ctx,near.h2[2]>near.e2[2]+8?[armL,handL]:[handL,armL],S);
+}
+
+// ===================== 猫 =====================
+// 身体沿 z 轴（朝前）放样，截面是竖直的椭圆圈 {z, cy, rx, ry}
+const CBODY=[{z:-178,cy:-150,rx:22,ry:26},{z:-160,cy:-150,rx:46,ry:50},{z:-120,cy:-148,rx:54,ry:54},{z:-60,cy:-150,rx:50,ry:48},{z:0,cy:-152,rx:48,ry:46},{z:60,cy:-158,rx:52,ry:52},{z:110,cy:-166,rx:46,ry:50},{z:140,cy:-182,rx:30,ry:34}];
+const CHEAD=[{y:-50,rx:22,rz:18},{y:-40,rx:46,rz:38},{y:-16,rx:58,rz:46},{y:8,rx:62,rz:44},{y:24,rx:46,rz:34},{y:36,rx:20,rz:16}];
+const catTurnF=t=>-26+8*Math.sin(t*.8)+(t>3.2&&t<4.6?-10*Math.sin((t-3.2)/1.4*Math.PI):0);
+const tailDrive=[follow(t=>Math.sin(t*1.5)*22,{k:16,c:3,T:DUR+1})];
+for(let i=1;i<9;i++)tailDrive.push(follow(tailDrive[i-1],{k:26,c:5,T:DUR+1}));
+const earTw=follow(t=>(t>5.3&&t<5.5)?1:0,{k:180,c:10,T:DUR+1});
+function cat(P,t){
+  const br=Math.sin(t*2.6),blink=blinkAt(t,[2.2,6.0]),turn=catTurnF(t),S={line:O,lw:6,weight:3.6};
+  const body=(()=>{const R=[];for(let z=CBODY[0].z;z<=CBODY[CBODY.length-1].z;z+=6){const c=sliceAtZ(CBODY,z);R.push(ringZ({...c,ry:c.ry*(1+br*.02*(z>-80&&z<80?1:0)),cy:c.cy+(z>-80&&z<80?br*.6:0)},26).map(P))}return silhouette(sweepPolys(R))})();
+  const p2=q=>[q[0],q[1]];
+  const legF=x=>{const sh=[x,-150,92],paw=[x,-10,104],{E}=ik3(sh,paw,78,70,[0,0,-1]);return tube([sh,E,paw].map(P).map(p2),[[0,28],[.4,19],[.75,13],[1,13]])};
+  const legR=x=>{const hip=[x,-130,-122],hock=[x,-50,-160],paw=[x,-10,-136];return tube([hip,[x,-92,-138],hock,paw].map(P).map(p2),[[0,30],[.35,20],[.6,14],[1,13]])};
+  const paw=(x,z)=>hull(ringY({y:-8,cx:x,cz:z+4,rx:15,rz:19},16).concat(ringY({y:-2,cx:x,cz:z+4,rx:15,rz:19},16)).concat([[x,-20,z]]).map(P).map(p2));
+  // 尾巴：一串点，每节的摆动比上一节晚一拍（弹簧链）
+  const tail=(()=>{let p=[0,-160,-170];const o=[p];for(let i=0;i<9;i++){const al=(-10+i*13)*K3.D,d=rotY([0,-Math.sin(al),-Math.cos(al)],tailDrive[i](t)*(.4+i*.12));p=[p[0]+d[0]*26,p[1]+d[1]*26,p[2]+d[2]*26];o.push(p)}return o})();
+  const tailS=tube(tail.map(P).map(p2),[[0,17],[.2,13],[.9,12],[1,13]],{cap1:'round'});
+  // 远侧两条腿 + 尾巴（在身体后面）
+  figure(ctx,[{parts:[{pts:tailS,fill:C.fur,shade:C.furSh,detail:g=>{[3,5,7].forEach(i=>{const a=P(tail[i]),b=P(tail[i+1]);const nx=-(b[1]-a[1]),ny=b[0]-a[0],l=Math.hypot(nx,ny)||1;brush(g,[[a[0]+nx/l*16,a[1]+ny/l*16],[a[0]-nx/l*16,a[1]-ny/l*16]],9,C.stripe,{start:.2,end:.2})})}}]},
+    {parts:[{pts:legF(30),fill:C.furD,shade:C.furSh},{pts:paw(30,104),fill:C.furD},{pts:legR(34),fill:C.furD,shade:C.furSh},{pts:paw(34,-136),fill:C.furD}]}],S);
+  // 身体：条纹沿截面圈画，3/4 视角下自动弯成弧
+  const onB=(z,a,k=1)=>{const c=sliceAtZ(CBODY,z);return P([(c.cx||0)+c.rx*k*Math.cos(a*K3.D),c.cy+c.ry*k*Math.sin(a*K3.D),z])};
+  figure(ctx,[{parts:[{pts:body,fill:C.fur,shade:C.furSh,shadeDepth:20,detail:g=>{
+      const belly=[];for(let z=-130;z<=120;z+=10)belly.push(onB(z,135));for(let z=120;z>=-130;z-=10)belly.push(onB(z,96,1.05));g.fillStyle=C.belly;trace(g,blob(belly.map(p2),3));g.fill();
+      [-140,-110,-80,-50,-20,10,40].forEach((z,i)=>{const l=[];for(let a=-100;a>=-185;a-=12)l.push(onB(z+(a+100)*.12,a,1.01));brush(g,l,13-i*.5,C.stripe,{start:.15,end:.7});
+        const r=[];for(let a=-80;a<=-30;a+=10)r.push(onB(z,a,1.01));brush(g,r,9,C.stripe,{start:.15,end:.7})});
+    }}],after:g=>{const l=[];for(let a=-150;a<=-118;a+=8)l.push(onB(-150+(a+150)*1.2,a+40));brush(g,[onB(-96,-160),onB(-108,-185),onB(-104,-205)],5,O,{start:.3,end:.3})}}],S);
+  // 近侧两条腿：边线在身体里淡出
+  const lf=legF(-30),lr=legR(-34),sF=P([-30,-150,92]),sR=P([-34,-130,-122]);
+  figure(ctx,[{parts:[{pts:lr,fill:C.fur,shade:C.furSh},{pts:paw(-34,-136),fill:C.fur,shade:C.furSh},{pts:lf,fill:C.fur,shade:C.furSh},{pts:paw(-30,104),fill:C.fur,shade:C.furSh}],
+    joins:[{at:p2(sR),r:52,into:body},{at:p2(sF),r:54,into:body}],
+    after:g=>{[[-30,104],[-34,-136]].forEach(([x,z])=>[-6,6].forEach(d=>{const a=P([x+d,-14,z+20]),b=P([x+d,-2,z+22]);brush(g,[p2(a),p2(b)],3.4,O,{start:.3,end:.1})}))}}],S);
+  // 头：转向镜头，耳朵和腮毛并进轮廓，五官贴在表面
+  const hc=[0,-214,150],HPc=p=>P(rotY([p[0]+hc[0],p[1]+hc[1],p[2]+hc[2]],turn,hc));
+  const R=[];for(let y=-50;y<=36;y+=4)R.push(ringY(sliceAt(CHEAD,y),28).map(HPc));const head=silhouette(sweepPolys(R));
+  const ear=s=>{const tw=s<0?earTw(t)*14:0;const a=HPc([s*20,-46,14]),b=HPc([s*50,-36,-4]),tip=HPc([s*(46+tw*.3),-96+tw,4-tw]),tip2=HPc([s*(44+tw*.3),-95+tw,6-tw]);return blob([a,tip,tip2,b].map(p2),6)};
+  const earIn=s=>{const a=HPc([s*24,-44,16]),b=HPc([s*44,-38,4]),tip=HPc([s*42,-84,8]);return blob([a,tip,b].map(p2),6)};
+  const muzR=[];for(let y=6;y<=34;y+=4){const k=Math.sin((y-6)/28*Math.PI);muzR.push(ringY({y,cx:0,cz:30,rx:8+18*k,rz:6+12*k},20).map(HPc))}const muzzle=silhouette(sweepPolys(muzR));
+  const fluff=s=>{const pts=[[s*52,-6,10],[s*72,6,0],[s*62,12,6],[s*74,22,-4],[s*54,30,6],[s*40,22,20]].map(HPc).map(p2);return blob(pts,5)};
+  const hVis=(y,phi)=>{const n=rotY(surfNormal(CHEAD,y,phi),turn);return P.facing([n[0]/Math.hypot(n[0],n[2]),0,n[2]/Math.hypot(n[0],n[2])])};
+  figure(ctx,[{parts:[{pts:ear(1),fill:C.fur,shade:C.furSh,detail:g=>{trace(g,earIn(1));g.fillStyle=C.pink;g.fill()}}]},
+    {parts:[{pts:fluff(1),fill:C.fur},{pts:fluff(-1),fill:C.fur},{pts:head,fill:C.fur,shade:C.furSh,shadeDepth:14,detail:g=>{
+        [-14,0,14].forEach(p=>{const a=HPc(surf(CHEAD,-44,p)),b=HPc(surf(CHEAD,-22,p*.8));brush(g,[p2(a),p2(b)],8,C.stripe,{start:.05,end:.8})});
+        [-1,1].forEach(s=>[0,12].forEach(dy=>{const a=HPc(surf(CHEAD,dy,s*80)),b=HPc(surf(CHEAD,dy+2,s*58));if(hVis(dy,s*70)>0)brush(g,[p2(a),p2(b)],7,C.stripe,{start:.05,end:.8})}));
+      }},{pts:ear(-1),fill:C.fur,shade:C.furSh,detail:g=>{trace(g,earIn(-1));g.fillStyle=C.pink;g.fill()}},{pts:muzzle,fill:C.belly,shade:false}],
+     joins:[{at:p2(HPc([-40,24,-20])),r:40,into:body}],
+     after:g=>{
+       [[-30],[30]].forEach(([phi])=>{const f=hVis(-4,phi);if(f<.15)return;const q=HPc(surf(CHEAD,-4,phi)),wE=15*f,hE=13*(1-blink*.92);
+         g.save();g.translate(q[0],q[1]);const eye=blob([[-wE,2],[-wE*.4,-hE*.8],[wE*.5,-hE*.85],[wE,-1],[wE*.5,hE*.7],[-wE*.5,hE*.7]],8);
+         trace(g,eye);g.fillStyle=C.eye;g.fill();g.save();trace(g,eye);g.clip();g.fillStyle=O;g.beginPath();g.ellipse(wE*.15,0,Math.max(1.5,3.5*f),hE*.85,0,0,7);g.fill();g.restore();
+         g.fillStyle=C.white;g.beginPath();g.arc(wE*.3,-hE*.4,2.2,0,7);g.fill();g.restore();
+         brush(g,[[q[0]-wE*1.1,q[1]+2],[q[0]-wE*.3,q[1]-hE*.95],[q[0]+wE*.7,q[1]-hE*.95],[q[0]+wE*1.15,q[1]-1]],5,O,{start:.25,end:.5});});
+       const n=HPc([0,8,52]);trace(g,blob([[n[0]-8,n[1]-3],[n[0]+8,n[1]-3],[n[0]+2,n[1]+6],[n[0]-2,n[1]+6]],5));g.fillStyle=C.pink;g.fill();
+       const m=HPc([0,16,52]),ml=HPc([-12,22,46]),mr=HPc([12,22,46]);brush(g,[[n[0],n[1]+6],p2(m)],3.4,O);brush(g,[p2(m),[lerp(m[0],ml[0],.5),m[1]+5],p2(ml)],3.4,O);brush(g,[p2(m),[lerp(m[0],mr[0],.5),m[1]+5],p2(mr)],3.4,O);
+       [-1,1].forEach(s=>[0,8].forEach(d=>{const a=HPc([s*16,14+d,44]),b=HPc([s*96,6+d*2.4,24]);brush(g,[p2(a),[lerp(a[0],b[0],.5),lerp(a[1],b[1],.5)-4],p2(b)],2.6,O,{start:.05,end:.9})}));
+     }}],S);
+}
+
+// ===================== 画面 =====================
+function render(t){
+  const st=Math.floor(t*12)/12; // 一拍二
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.fillStyle='#F4DDB2';ctx.fillRect(0,0,W,1060);ctx.fillStyle='#EAD3A6';ctx.fillRect(0,1060,W,860);
+  ctx.fillStyle='rgba(0,0,0,.07)';ctx.beginPath();ctx.ellipse(470,1000,170,24,0,0,7);ctx.fill();ctx.beginPath();ctx.ellipse(560,1458,190,22,0,0,7);ctx.fill();
+  scholar(camera({yaw:32,pitch:8,s:1.12,ox:460,oy:1000}),st);
+  cat(camera({yaw:38,pitch:12,s:1,ox:560,oy:1458}),st);
+  ctx.fillStyle='rgba(42,31,51,.6)';ctx.font='500 26px "Noto Sans SC",sans-serif';ctx.textAlign='center';
+  [0,20,35,55,80].forEach((yaw,i)=>{const x=110+i*215;scholar(camera({yaw,pitch:8,s:.4,ox:x,oy:1850}),0,{lw:3,anim:false});ctx.fillStyle='rgba(42,31,51,.6)';ctx.fillText(yaw+'°',x,1902)});
+  ctx.fillStyle=O;ctx.fillRect(0,1058,W,4);ctx.fillRect(0,1540,W,3);
+}
+window.VIDEO={W,H,FPS,DUR};
+window.renderFrame=n=>render(n/FPS);
+let t0=null;function loop(ts){if(t0===null)t0=ts;render(((ts-t0)/1000)%DUR);requestAnimationFrame(loop)}
+(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>{if(!navigator.webdriver)requestAnimationFrame(loop);else render(0)});
+</script>
+</body>
+</html>
