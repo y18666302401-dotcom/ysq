@@ -2,7 +2,7 @@
 """给 VCSL（CC0）里的中国古代题材可用乐器写 SFZ（VCSL 只提供 wav，不带 sfz）。
 
 先秦—汉 / 唐 / 宋—明清 题材的配器（audio.md 的时代配乐表）靠这些采样：
-  guzheng   越南筝 Dan Tranh（当古琴 / 古筝 / 琵琶的拨弦）     xun        陶笛 Ocarina（当埙，低音区）
+  guzheng   越南筝 Dan Tranh（当古筝 / 琵琶的拨弦；音色偏亮偏硬）  harp  民间竖琴 Folk Harp（柔和，可当箜篌）     xun        陶笛 Ocarina（当埙，低音区）
   bianzhong 管钟 Tubular Bells（当编钟）                      jiangu     框鼓 Frame Drum（当建鼓）
   gong      锣（大锣"匡"）                                     muyu       木鱼 Woodblock / 拍板 Claves / 梆子 Slit Drum
 VCSL 的文件名里的音名不一定可靠（不同乐器的八度记法不同），所以默认每个采样都实测基频，用实测音高做 pitch_keycenter。
@@ -60,6 +60,7 @@ if __name__ == '__main__':
     pitched(src, out, 'guzheng', 'Chordophones/Zithers/Dan Tranh/Normal', vel=lambda f: DYN.get(f.split('_')[1], 4), release=1.2)
     pitched(src, out, 'xun', 'Aerophones/Edge-blown Aerophones/Ocarina, Typical/Sustains/Sus', attack=0.12, release=0.5, fmin=150)
     pitched(src, out, 'bianzhong', 'Idiophones/Struck Idiophones/Tubular Bells 1', vel=lambda f: DYN.get(f.split('_')[2], 4), release=3.0, keyfn=from_name)
+    pitched(src, out, 'harp', 'Chordophones/Composite Chordophones/Folk Harp', match=r'Normal.*\.wav$', vel=lambda f: int(re.search(r'_v(\d)', f).group(1)), release=1.6)   # 民间竖琴：比筝柔和，可当箜篌
     G = 'Chordophones/Zithers/Dan Tranh/Gliss/'; FD = 'Membranophones/Struck Membranophones/Frame Drum/'; I = 'Idiophones/Struck Idiophones/'
     hits(src, out, 'zheng_gliss', {48: (G + 'Gliss_Up_Med_ff_1.wav', ''), 50: (G + 'Gliss_Dwn_Med_ff_1.wav', ''), 52: (G + 'Gliss_Dwn_Slw_ff_1.wav', '')}, release=1.0)
     hits(src, out, 'han_perc', {

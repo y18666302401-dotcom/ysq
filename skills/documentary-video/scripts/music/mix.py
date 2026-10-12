@@ -32,6 +32,8 @@ BUS = {
     'zheng_gliss':  (-24, [HighpassFilter(80), Reverb(.6, .5, .28, .85)]),
     'xun':          (-25, [HighpassFilter(120), LowpassFilter(5000), Reverb(.7, .5, .3, .82)]),
     'bianzhong':    (-23, [HighpassFilter(90), Reverb(.75, .5, .32, .8)]),
+    'harp':         (-22, [HighpassFilter(50), Reverb(.55, .5, .26, .86)]),
+    'guqin':        (-21, [HighpassFilter(45), LowpassFilter(4500), Reverb(.6, .5, .22, .86)]),
     'han_perc':     (-22, [Compressor(-20, 2.5, 5, 120), Reverb(.45, .5, .18, .9)]),
 }
 
