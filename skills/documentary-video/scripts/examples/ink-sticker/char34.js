@@ -136,8 +136,9 @@ function buildMan(P, S) {
   // 远手臂（在躯干后面）
   const arm = (sh, hand, near) => { const [el, h] = ik(sh, hand, S.upper, S.fore, P.elbowPref || [-0.4, 1]); const u = S.upper;
     return { L: limbPoly([sh, el, h], [[0, u * 0.5], [0.2, u * 0.46], [0.5, u * 0.36], [0.62, u * 0.38], [0.9, u * 0.3], [1, u * 0.3]]), el, h }; };
+  // 手：哆啦A梦式的圆手掌，不画手指和拇指
   const handPoly = (A, r) => { const tip = A.L.c[A.L.c.length - 1], prev = A.L.c[Math.max(0, A.L.c.length - 6)], a = Math.atan2(tip[1] - prev[1], tip[0] - prev[0]);
-    const ctr = add(tip, rot([r * 0.7, 0], a)); return { ctr, a, P: smooth([...ell(ctr[0], ctr[1], r, r * 0.82, a, 14)], true, 1), thumb: ell(...add(ctr, rot([-r * 0.1, -r * 0.75], a)), r * 0.42, r * 0.3, a - 0.6, 12) }; };
+    const ctr = add(tip, rot([r * 0.7, 0], a)); return { ctr, a, P: smooth([...ell(ctr[0], ctr[1], r, r, a, 14)], true, 1) }; };
   const armF = arm(fs, P.hF, false), hF = handPoly(armF, S.head * 0.24);
   parts.push({ name: 'handF', P: hF.P, col: SKIN_SH, seed: 31 });
   parts.push({ name: 'armF', P: armF.L.poly, col: S.tunicSh, sh: S.tunicSh2, lit: [5, -4], seed: 32, after: g => cuff(g, armF.L) });
@@ -165,8 +166,13 @@ function buildMan(P, S) {
   const head = smooth([[-0.5, -0.88], [0.12, -1.02], [0.72, -0.7], [0.9, -0.22], [0.86, 0.32], [0.6, 0.84], [0.1, 0.98], [-0.5, 0.66], [-0.95, 0.05], [-0.85, -0.52]].map(([a, b]) => H([a * hr, b * hr])), true, 3);
   parts.push({ name: 'head', P: head, col: SKIN, sh: SKIN_SH, lit: [7, -5], seed: 52, over: ['neck', 'torso'], edge: head.concat([head[0]]) });
   const F = (a, b) => H([a * hr, b * hr]), FP = pts => pts.map(([a, b]) => F(a, b));
-  const ear = ell(...F(-0.36, 0.1), hr * 0.17, hr * 0.25, 0.15, 16);
-  const earPart = { name: 'ear', P: ear, col: SKIN, sh: SKIN_SH, lit: [3, -2], seed: 53, over: ['head', 'hair'], ew: 3, after: g => taper(g, FP([[-0.3, 0.02], [-0.4, 0.08], [-0.36, 0.22]]), 2.4, tc(SKIN_SH), { seed: 4 }) };
+  // 耳朵：侧面看是"C"形——前缘贴着脸颊几乎是直的，后缘向后鼓出，上宽下窄收成耳垂；里面一块 C 形耳窝暗面 + 耳轮内沿一道线 + 耳孔前的小耳屏
+  const ear = smooth(FP([[-0.26, -0.16], [-0.38, -0.25], [-0.54, -0.18], [-0.61, 0.0], [-0.56, 0.17], [-0.47, 0.3], [-0.37, 0.37], [-0.29, 0.32], [-0.3, 0.2], [-0.25, 0.02]]), true, 3);
+  const concha = smooth(FP([[-0.32, -0.1], [-0.45, -0.13], [-0.53, 0.0], [-0.5, 0.14], [-0.41, 0.22], [-0.33, 0.2], [-0.38, 0.12], [-0.42, 0.03], [-0.37, -0.03]]), true, 3);
+  const earPart = { name: 'ear', P: ear, col: SKIN, sh: SKIN_SH, lit: [3, -2], seed: 53, over: ['head', 'hair'], ew: 3, after: g => {
+    g.fillStyle = tc(SKIN_SH); path(g, concha); g.fill(); // 耳窝：一块 C 形暗面
+    taper(g, FP([[-0.31, -0.11], [-0.45, -0.14], [-0.53, 0.0], [-0.5, 0.14], [-0.4, 0.23]]), 2.6, INK, { seed: 4 }); // 耳轮内沿
+    taper(g, FP([[-0.29, 0.03], [-0.36, 0.06], [-0.35, 0.13]]), 2.2, INK, { seed: 6 }); } }; // 耳屏
   // 头发：戴帽子时只留帽檐下的鬓角和后脑一撮（不再有一条发际线横穿额头）；不戴帽子时是完整的发型
   const hairPts = S.hat ? [[-0.98, 0.34], [-1.02, -0.3], [-0.72, -0.52], [-0.3, -0.5], [-0.4, -0.16], [-0.52, 0.18], [-0.64, 0.46]]
     : [[-0.97, 0.3], [-0.98, -0.4], [-0.5, -0.95], [0.2, -1.04], [0.7, -0.8], [0.62, -0.56], [0.28, -0.66], [-0.05, -0.5], [-0.3, -0.3], [-0.5, 0.05], [-0.62, 0.42]];
@@ -192,7 +198,6 @@ function buildMan(P, S) {
   const armN = arm(ns, P.hN, true), hN = handPoly(armN, S.head * 0.27);
   parts.push({ name: 'armN', P: armN.L.poly, col: S.tunic, sh: S.tunicSh, lit: [6, -6], seed: 61, edge: armN.L.open, over: ['torso', 'belt', 'legN', 'legF'], after: g => cuff(g, armN.L) });
   parts.push({ name: 'handN', P: hN.P, col: SKIN, sh: SKIN_SH, lit: [4, -4], seed: 62, over: ['armN', 'torso', 'belt'], ew: 3 });
-  parts.push({ name: 'thumbN', P: hN.thumb, col: SKIN, seed: 63, over: ['handN'], ew: 2.6 });
 
   const look = P.look || [1, 0];
   // 表情参数：lid 上眼皮（0 瞪大 … 1 闭上）、squint 下眼皮上推（笑、怒）、brow 眉毛高低、browAng 眉头（+ 皱眉/怒，- 发愁）、smile（-1 撇嘴 … 1 笑）、mouth 张嘴

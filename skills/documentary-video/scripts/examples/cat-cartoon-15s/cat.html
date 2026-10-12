@@ -192,11 +192,9 @@ function seg(a,b,w0,w1,fill){ // 一段两头粗细不同、带描边的肢体
   const ang=Math.atan2(b[1]-a[1],b[0]-a[0]),nx=-Math.sin(ang),ny=Math.cos(ang);
   shape(()=>{ctx.moveTo(a[0]+nx*w0/2,a[1]+ny*w0/2);ctx.lineTo(b[0]+nx*w1/2,b[1]+ny*w1/2);ctx.arc(b[0],b[1],w1/2,ang+Math.PI/2,ang-Math.PI/2,true);ctx.lineTo(a[0]-nx*w0/2,a[1]-ny*w0/2);ctx.arc(a[0],a[1],w0/2,ang-Math.PI/2,ang+Math.PI/2,true);ctx.closePath()},fill,null);
 }
-function fist(p,ang,skin,shade){ // 握拳的手：手掌 + 压在上面的拇指
+function palm(p,ang,skin,shade){ // 手：哆啦A梦式的圆手掌，不画手指
   ctx.save();ctx.translate(p[0],p[1]);ctx.rotate(ang);
-  shape(rrect(-16,-21,40,42,16),skin,sh(shade,rrect(-16,6,40,20,0)),5);
-  [-8,3,14].forEach(x=>line([[x,10],[x,20]],3));
-  shape(ell(6,-18,15,8,-.3),skin,null,4);
+  shape(circ(4,0,22),skin,sh(shade,ell(4,18,26,12)),5);
   ctx.restore();
 }
 function arm(sh0,hand,col,cuff,skin,shade){
@@ -206,7 +204,7 @@ function arm(sh0,hand,col,cuff,skin,shade){
   seg(sh0,el,50,44,col);seg(el,wr,44,40,col);
   ctx.beginPath();ctx.arc(el[0],el[1],21,0,Math.PI*2);ctx.fillStyle=col;ctx.fill(); // 盖住肘部接缝
   seg([wr[0]-Math.cos(ang)*4,wr[1]-Math.sin(ang)*4],[wr[0]+Math.cos(ang)*6,wr[1]+Math.sin(ang)*6],38,38,cuff);
-  fist(hand,ang,skin,shade);
+  palm(hand,ang,skin,shade);
 }
 function marey(t,brow,hands,drawCat){
   const hip=[352,1300],lean=-.05,bob=Math.round(Math.sin(t*2.2)*3);
@@ -232,7 +230,11 @@ function marey(t,brow,hands,drawCat){
   shape(ell(333,884,60,64),'#CFCBC2',sh('#ADA89E',ell(318,920,44,30)));       // 脑后一圈白发
   shape(ell(354,866,64,72),C.skin,sh(C.skinSh,ell(312,880,26,64)));           // 头（秃顶）
   line([[330,812],[350,800]],6,'rgba(255,255,255,.75)');                        // 头顶反光
-  shape(ell(332,880,12,18),C.skin,sh(C.skinSh,ell(328,884,6,11)),5);           // 耳朵
+  // 耳朵：侧面是 C 形——前缘贴着脸几乎是直的，后缘向后鼓出，上宽下窄收成耳垂；里面一块 C 形耳窝暗面 + 耳轮内沿一道线
+  shape(()=>{ctx.moveTo(344,850);ctx.bezierCurveTo(332,838,306,842,306,866);ctx.bezierCurveTo(306,888,318,908,336,908);ctx.quadraticCurveTo(346,906,343,894);ctx.lineTo(346,868);ctx.closePath()},C.skin,
+    sh(C.skinSh,()=>{ctx.moveTo(340,860);ctx.bezierCurveTo(328,852,316,860,317,874);ctx.bezierCurveTo(318,888,328,896,338,893);ctx.quadraticCurveTo(326,880,340,860);ctx.closePath()}),5);
+  ctx.beginPath();ctx.moveTo(340,858);ctx.bezierCurveTo(326,850,315,860,316,874);ctx.bezierCurveTo(317,888,327,896,337,894);ctx.lineWidth=4;ctx.strokeStyle=O;ctx.lineCap='round';ctx.stroke();
+  line([[342,872],[334,876],[336,884]],3);                                      // 耳屏
   // 络腮胡与八字胡：一整块
   shape(()=>{ctx.moveTo(326,898);ctx.quadraticCurveTo(320,960,356,996);ctx.quadraticCurveTo(384,1012,404,990);ctx.quadraticCurveTo(424,960,420,924);ctx.quadraticCurveTo(440,920,436,906);ctx.quadraticCurveTo(420,896,404,902);ctx.quadraticCurveTo(384,906,368,898);ctx.quadraticCurveTo(346,904,326,898);ctx.closePath()},
     C.beard,sh(C.beardSh,ell(350,1000,46,24)));
@@ -248,7 +250,7 @@ function marey(t,brow,hands,drawCat){
   drawCat();
   shape(ell(...sN,34,30),C.coat,null,5);                                        // 近侧肩头
   // 远侧手画在猫爪上面，近侧手臂整条在最前面
-  fist(hands.far,-.3,C.skinSh,'#C98C6A');
+  palm(hands.far,-.3,C.skinSh,'#C98C6A');
   arm(sN,hands.near,C.coat,'#F1ECE0',C.skin,C.skinSh);
 }
 
@@ -334,15 +336,14 @@ function shot2(t){
     shape(rrect(-16,-110,32,80,14),C.star,null,6);shape(circ(0,-4,16),C.star,null,6);ctx.restore()}
   // 闪光
   if(t>T_LAND+.6){const f=Math.floor(t*DRAW);[[x+190,890],[x+250,960],[x-210,920]].forEach(([sx2,sy2],i)=>{const s=(f+i)%4<2?26:16;shape(poly([[sx2,sy2-s],[sx2+s*.3,sy2-s*.3],[sx2+s,sy2],[sx2+s*.3,sy2+s*.3],[sx2,sy2+s],[sx2-s*.3,sy2+s*.3],[sx2-s,sy2],[sx2-s*.3,sy2-s*.3]]),C.star,null,4)})}
-  // 马雷的双手：先握住两只爪子，松手时手指张开、整只手迅速抽出画面
+  // 马雷的双手：先握住两只爪子，松手时手向外弹开、整只手迅速抽出画面
   if(t<T_DROP+.35){const k=prog(t,T_DROP,T_DROP+.35),up=-ein(k)*500,open=t>=T_DROP;
     [[x+PAW_R[0]*1.25,-1,C.coatSh,C.skinSh],[x+PAW_F[0]*1.25,1,C.coat,C.skin]].forEach(([hx,d,col,sk])=>{
       const hx2=hx+d*(open?50:0),hy=y+PAW_F[1]*1.25+up;
       seg([hx2+d*30,-90+up],[hx2,hy-46],74,64,col);
       seg([hx2,hy-52],[hx2,hy-30],62,62,'#F1ECE0');
       ctx.save();ctx.translate(hx2,hy);ctx.scale(1.5,1.5);
-      if(open){shape(rrect(-20,-14,40,30,14),sk,null,5);[-1.2,-.4,.4,1.2].forEach(a=>limb([[a*12,12],[a*26,40]],10,sk,4));limb([[d*-18,0],[d*-36,14]],10,sk,4)}
-      else fist([0,0],Math.PI/2,sk,C.skinSh);
+      palm([0,0],Math.PI/2,sk,C.skinSh); // 圆手掌没有手指可张开：松手靠整只手向外弹开 + 速度线表现
       ctx.restore();
       if(open&&k<.3)[0,1].forEach(i=>line([[hx2+d*(70+i*20),hy-20-i*30],[hx2+d*(110+i*20),hy-40-i*30]],7,C.white))})}
 }
