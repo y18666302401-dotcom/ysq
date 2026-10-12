@@ -1,5 +1,5 @@
 Target length: 80–90 seconds
-Estimated narration: about 233 words (140–160 wpm, about 87–100 seconds)
+Estimated narration: about 228 words (140–160 wpm, about 87–100 seconds)
 
 【Full narration】
 
@@ -15,13 +15,13 @@ But the chicken rib didn't kill him. That's the novel. Yang Xiu had written a do
 
 That autumn, Yang Xiu was executed, aged 45. He said: "I always knew I'd lived too long."
 
-So what killed him? Being too clever, or picking the wrong side? Let me know in the comments.
+So what killed him? Being too clever, or picking the wrong side?
 【Comment hook】
 Closing question: So what killed him? Being too clever, or picking the wrong side? (A: too clever / B: wrong side)
 Mid-video prediction: none
 
 【Word Count】
-233 words
+228 words
 
 【Estimated voice-over length】
 About 93 seconds (plus 3–4 seconds holding on the question card)
