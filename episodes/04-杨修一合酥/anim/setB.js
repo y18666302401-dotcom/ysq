@@ -26,9 +26,17 @@ function drawGate(ctx, t, { w = GATE.w, scaffold = 1, leafOpen = 1 } = {}) {
   const xl = GATE.cx - w / 2, xr = GATE.cx + w / 2;
   fillP(ctx, rectP(xl, GATE.top + 60, w, GROUND - GATE.top - 60), '#F6E7C4', 840);
   solid(ctx, prep([[xl + 40, 980], [xr - 40, 980], [xr - 40, GROUND], [xl + 40, GROUND]], true), '#E4C79C', { seed: 841, noShadow: true });
-  // 两扇门（向里开，窄的透视面）
-  for (const [x, d] of [[xl + GATE.post / 2, 1], [xr - GATE.post / 2, -1]]) { const ow = 120 * leafOpen, P = prep([[x, GATE.top + 70], [x + d * ow, GATE.top + 110], [x + d * ow, GROUND - 30], [x, GROUND]], true);
+  // 两扇门：leafOpen > 0 时向里开（窄的透视面）；= 0 时关着、正对镜头（第 9–11 镜，字写在右扇门上）
+  let panels = null;
+  if (leafOpen > 0) for (const [x, d] of [[xl + GATE.post / 2, 1], [xr - GATE.post / 2, -1]]) { const ow = 120 * leafOpen, P = prep([[x, GATE.top + 70], [x + d * ow, GATE.top + 110], [x + d * ow, GROUND - 30], [x, GROUND]], true);
     solid(ctx, P, '#A8825B', { sh: '#8C6A45', seed: 850 + d, lit: [d * 10, 0] }); for (let k = 0; k < 4; k++) for (let j = 0; j < 3; j++) { const px = x + d * ow * (0.3 + j * 0.25), py = GATE.top + 180 + k * 150 + j * 6; ctx.fillStyle = '#C9A14A'; ctx.beginPath(); ctx.arc(px, py, 7, 0, 7); ctx.fill(); } }
+  else { const y0 = GATE.top + 60, x0 = xl + GATE.post, x1 = xr - GATE.post, cx = (x0 + x1) / 2; panels = [[x0, cx, y0, GROUND], [cx, x1, y0, GROUND]];
+    for (const [a, b] of panels) { solid(ctx, rectP(a, y0, b - a, GROUND - y0), '#A8825B', { sh: '#937048', seed: 851 + a % 7, lit: [14, 0], noShadow: true });
+      // 木纹：竖向的拼板缝 + 几道弯的纹理
+      for (let k = 1; k < 4; k++) ink(ctx, prep([[a + (b - a) * k / 4, y0 + 4], [a + (b - a) * k / 4 + 2, GROUND - 4]], false), 1, { seed: 852 + k, w: 3, col: '#7A5A3C' });
+      for (let k = 0; k < 9; k++) { const gx = a + 14 + ((k * 53) % Math.max(20, b - a - 28)), gy = y0 + 40 + ((k * 137) % (GROUND - y0 - 80)); ink(ctx, prep([[gx, gy], [gx + 6, gy + 40], [gx + 2, gy + 90]], false), 1, { seed: 856 + k, w: 2, col: '#937048' }); }
+      for (let k = 0; k < 5; k++) for (let j = 0; j < 3; j++) { ctx.fillStyle = '#C9A14A'; ctx.beginPath(); ctx.arc(a + (b - a) * (0.2 + j * 0.3), y0 + 60 + k * 125, 7, 0, 7); ctx.fill(); ctx.strokeStyle = '#6B4A36'; ctx.lineWidth = 2; ctx.stroke(); } }
+    ink(ctx, prep([[cx, y0], [cx, GROUND]], false), 1, { seed: 859, w: 5 }); }
   // 门柱 + 门楣 + 屋顶
   for (const x of [xl, xr - GATE.post]) solid(ctx, rectP(x, GATE.top, GATE.post, GROUND - GATE.top), '#8C5E3C', { sh: '#704A2E', seed: 860 + x % 5, lit: [16, 0] });
   solid(ctx, rectP(xl - 60, GATE.top - 20, w + 120, 80), '#7A5236', { sh: '#62422B', seed: 865, lit: [0, -14] });
@@ -46,6 +54,7 @@ function drawGate(ctx, t, { w = GATE.w, scaffold = 1, leafOpen = 1 } = {}) {
   for (let i = 0; i < 3; i++) { const P = prep(ell(400, 1560 - i * 34, 17, 17, 0, 16), true); fillP(ctx, P, '#D9B88A', 884 + i); ink(ctx, P, 1, { seed: 885 + i, closed: true, w: 4 }); }
   solid(ctx, rectP(820, 1480, 110, 70), '#6B4A36', { sh: '#553926', seed: 890 }); const reel = prep(ell(875, 1515, 26, 26, 0, 18), true); fillP(ctx, reel, '#C9A14A', 891); ink(ctx, reel, 1, { seed: 892, closed: true, w: 4 });
   ink(ctx, prep([[930, 1515], [1100, 1500]], false), 1, { seed: 893, w: 2.5 });
+  return { panels };
 }
 function NTsun(ctx, t) { const [x, y] = SUN; for (const [r, a] of [[260, 0.18], [180, 0.25]]) { ctx.fillStyle = `rgba(255,236,190,${a})`; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
   const P = prep(ell(x, y, 92, 92, 0, 36), true); fillP(ctx, P, '#FFE7B0', 899); ink(ctx, P, 1, { seed: 899, closed: true }); }

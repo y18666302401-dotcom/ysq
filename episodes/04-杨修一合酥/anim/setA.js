@@ -7,6 +7,7 @@ const L = require('./lib');
 const { C, NT, W, H, prep, rectP, ink, fillP, solid, S_, eo, eio, backOut, slipLabel } = L;
 const { clamp, lerp, jit, path, ell, smooth } = C;
 const { N, NIGHT_INK: NI, pool, flame, halo, nightSky, moonDisc } = NT;
+const INKT = require('./inkText');
 
 const WW = 2400, HOR = 1150;
 const MAIN = { x: 640, base: 1190, w: 560, h: 430 };
@@ -49,7 +50,7 @@ function drawExterior(ctx, t, { reveal = 1e9, yangTent = null, shadowCao = 0, ya
   for (let x = -60; x < WW + 60; x += 46) { const P = prep([[x, HOR + 14], [x, HOR - 70 - (x % 92 ? 0 : 14)], [x + 22, HOR - 82 - (x % 92 ? 0 : 14)], [x + 22, HOR + 14]], true); if (fk(0.5) > 0) fillP(ctx, P, N('#7A5640', 0.02), 40 + x % 7); ink(ctx, P, lp(0.5), { seed: 40 + (x % 13), col: NI, w: 4, closed: true }); }
   for (const fx of [260, 1260, 2150]) { const sway = Math.sin(t * 2.2 + fx) * 10; ink(ctx, prep([[fx, HOR + 10], [fx, HOR - 420]], false), lp(0.6), { seed: fx, col: NI, w: 7 });
     const F = prep([[fx, HOR - 420], [fx + 170 + sway, HOR - 400 + sway * 0.5], [fx + 160 + sway * 1.3, HOR - 300], [fx, HOR - 310]], true);
-    if (fk(0.6) > 0) { solid(ctx, F, N('#2C2A3A', 0.05), { seed: fx + 1, ink: NI }); ctx.save(); ctx.fillStyle = N('#C9A14A', 0.3); ctx.font = '64px WenKai'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('曹', fx + 82 + sway * 0.6, HOR - 360); ctx.restore(); } }
+    if (fk(0.6) > 0) { solid(ctx, F, N('#2C2A3A', 0.05), { seed: fx + 1, ink: NI }); const fq = [[fx + 30, HOR - 405 + sway * 0.12], [fx + 140 + sway * 0.9, HOR - 393 + sway * 0.4], [fx + 134 + sway * 1.1, HOR - 312], [fx + 30, HOR - 318]]; INKT.writeOn(ctx, '曹', fq, { col: N('#C9A14A', 0.3), clip: F, seed: fx, vertical: false, absorb: 0.2 }); } }   // 字随旗面摆动 }
   // 主帐：里面亮灯，帆布透出暖光
   const mt = tentShape(MAIN.x, MAIN.base, MAIN.w, MAIN.h);
   if (fk(0.7) > 0) { solid(ctx, mt, N('#D8C9A8', 0.75), { sh: N('#C2AE86', 0.45), seed: 51, ink: NI, lit: [-30, 0] });

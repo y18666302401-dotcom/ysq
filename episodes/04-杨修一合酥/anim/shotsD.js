@@ -7,6 +7,7 @@ const D = require('./setD');
 const { cue, local, keys, figure, walkPose, camera, shakeAt, ev, slipParts, stepTimes } = require('./stage');
 const { YANG, SOLDIER } = require('./cast');
 const RED = '#C8372D', GY = 1335;
+const INKT = require('./inkText');
 
 // ---------- 22：秋天，两名兵士押着杨修走出画面；一片红色令签飘落在地 ----------
 function s22(ctx, t) {
@@ -56,9 +57,9 @@ function s24(ctx, t) {
     // 钉子
     for (const x of [-w / 2 + 40, w / 2 - 40]) { ctx.fillStyle = '#4C4A4F'; ctx.beginPath(); ctx.arc(x, -h / 2 + 30, 12, 0, 7); ctx.fill(); }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `${L.LANG === 'zh' ? 76 : 62}px WenKai`; ctx.fillStyle = '#2A2440'; ctx.fillText(S_('q_title'), 0, -h * 0.17);
+    { const tw = L.LANG === 'zh' ? w * 0.82 : w * 0.9, th = L.LANG === 'zh' ? 104 : 70; INKT.writeOn(ctx, S_('q_title'), INKT.rectQuad([0, -h * 0.17], tw, th), { col: '#2A2440', clip: [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]], seed: 24, vertical: false, px: 160 }); }   // 标题写在竹片板上
     const opt = (txt, y, col, t0) => { const p = clamp(backOut((t - t0) / 0.3)); if (p <= 0) return; ctx.save(); ctx.translate(0, y); ctx.scale(p, p);
-      solid(ctx, rectP(-w * 0.38, -50, w * 0.76, 100), '#2C2A3A', { seed: 2020 + y, ink: '#141830' }); ctx.font = `${L.LANG === 'zh' ? 62 : 54}px ZenHei`; ctx.fillStyle = col; ctx.fillText(txt, 0, 4); ctx.restore(); };
+      const pl = [[-w * 0.38, -50], [w * 0.38, -50], [w * 0.38, 50], [-w * 0.38, 50]]; solid(ctx, prep(pl, true), '#2C2A3A', { seed: 2020 + y, ink: '#141830' }); for (let k = 0; k < 3; k++) INKT.writeOn(ctx, txt, INKT.rectQuad([0, 2], L.LANG === 'zh' ? w * 0.46 : w * 0.66, L.LANG === 'zh' ? 82 : 66), { col, clip: pl, seed: 2030 + y, vertical: false, px: 140, absorb: 0, cover: 1 }); /* 选项要一眼读清：叠三遍把飞白填实 */ ctx.restore(); };
     opt(S_('q_a'), h * 0.07, '#E8B04A', tNail + 0.35); opt(S_('q_b'), h * 0.26, '#9FE3B4', tNail + 0.5);
     ctx.restore();
     burst(ctx, cx, cy - h / 2, t, tNail + 0.18, { n: 9, r0: 60, len: 40, spread: 0.36 });

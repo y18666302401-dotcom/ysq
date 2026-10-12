@@ -9,6 +9,7 @@ const ST = require('./stage');
 const { cue, local, keys, figure, holdBefore, handW, headW, toLocal, walkPose, camera, shakeAt, ev, slipParts } = ST;
 const { CAO, YANG, OFFICERS } = require('./cast');
 const NI = NT.NIGHT_INK, RED = '#C8372D';
+const INKT = require('./inkText');
 const EXT_LIGHT = (x, y) => ({ pos: A.FIRE, k: clamp(NT.falloff([x, y - 300], A.FIRE, 900) * 0.9 + 0.05), moon: [1960, 250] });
 
 // ---------- 杨修小帐里（屏幕坐标；第 5–8、15 镜） ----------
@@ -61,21 +62,34 @@ function s02(ctx, t) {
 // ---------- 3：主帐里，曹操在令签上写下红字"鸡肋"，拍在案上 ----------
 function s03(ctx, t) {
   const { u, d, s } = local(t, '03');
-  const tW = cue('03', '鸡肋', 'Chicken', 0.8), slam = tW + 0.35;
-  camera(ctx, { x: lerp(600, 640, eio(u / d)), y: 1060, s: lerp(1.45, 1.6, eio(u / d)) }, shakeAt(t, slam, 9), t);
+  const tW = cue('03', '鸡肋', 'Chicken', 0.8), w0 = tW - 1.15, w1 = tW - 0.1, grab = tW + 0.05, slam = tW + 0.38;
+  camera(ctx, { x: lerp(600, 640, eio(u / d)), y: 1040, s: lerp(1.45, 1.58, eio(u / d)) }, shakeAt(t, slam, 9), t);
   A.drawCaoTent(ctx, t);
-  const light = { pos: A.CLAMP, k: 0.8, moon: null };
-  // 曹操：近手拿着令签，写字时笔在动；念到"鸡肋"后把令签"啪"地拍到案上
-  const lift = keys([[tW - 0.1, 0], [slam - 0.12, 1, 'out'], [slam, -0.3, 'lin'], [slam + 0.4, 0]])(t);
-  const P = { fN: [30, 0], fF: [-24, 0], lean: 0.04 - 0.05 * lift, hN: [lerp(120, 150, lift), lerp(-210, -280, lift) + (lift < 0 ? 40 : 0)], hF: [70 + 8 * Math.sin(t * 9) * (t < tW ? 1 : 0), -200], look: [0.4, 0.7], brow: t > slam ? -0.8 : 0.2, smile: t > slam ? -0.3 : 0, elbowPref: [-0.5, 1] };
-  const X = 520, GY = 1395;
-  const fig = figure(ctx, CAO, P, X, GY, 1, { light, clipY: A.CT.front + 10, props: f => holdBefore(f, slipParts(add(f.joints.hN, [10, -40]), 0.08, { seed: 40, w: 46, h: 190 })) });
-  // 红字一笔一笔出现在令签上（贴纸弹出）
-  const h = handW(fig, X, GY, 1, 1.35), ch = ['鸡', '肋'];
-  ch.forEach((c, i) => { const ti = tW - 0.5 + i * 0.25; glyph(ctx, c, h[0] + 14, h[1] - 108 + i * 64, 58, RED, { s: clamp(backOut((t - ti) / 0.25)), stroke: '#E3D19A', gloss: L.LANG === 'en' && i === 1 && t > tW ? 'chicken rib' : '' }); });
+  const light = { pos: A.CLAMP, k: 0.8, moon: null }, X = 470, GY = 1395;
+  // 曹操跪坐在案后；写字、拍签的手单独画在令签前面
+  const fig = figure(ctx, CAO, { fN: [30, 0], fF: [-24, 0], lean: 0.06, hN: [90, -180], hF: [60, -190], look: t < slam ? [0.6, 0.6] : [0.5, 0.8], brow: t > slam ? -0.8 : 0.2, smile: t > slam ? -0.3 : 0, elbowPref: [-0.5, 1] }, X, GY, 1, { light, clipY: A.CT.front + 10 });
   A.drawCaoDesk(ctx, t);
-  burst(ctx, h[0] + 20, h[1] - 40, t, slam, { n: 9, r0: 80, len: 50, col: NI });
-  ev(slam, 'slap', 0); ev(tW - 0.5, 'brush', 0); ev(tW - 0.25, 'brush', 0);
+  // 令签：先插在案上的木座里立着写；念完"鸡肋"被一把抓起，"啪"地拍平在案上
+  const nk = c => NT.N(c, 0.75), base = [640, A.CT.top - 4], H = 230, Wd = 58;
+  const up = keys([[grab, 0], [slam - 0.1, 1, 'out'], [slam, 0, 'lin']])(t), flat = clamp((t - (slam - 0.1)) / 0.1);
+  // 立着的四边形（随"抓起"上移、略斜）和平躺在案面上的四边形（签头朝左），拍下时两者之间插值
+  const upQ = INKT.rectQuad([base[0], base[1] - H / 2 - 70 * up], Wd, H, 0.04 - 0.25 * up);
+  const fc = [base[0] + 20, A.CT.top + 16], hh = 30, L0 = fc[0] - H / 2, R0 = fc[0] + H / 2;
+  const flatQ = [[L0, fc[1] - hh / 2], [L0 - 8, fc[1] + hh / 2], [R0 + 8, fc[1] + hh / 2], [R0, fc[1] - hh / 2]];
+  const quad = upQ.map((p, i) => [lerp(p[0], flatQ[i][0], eio(flat)), lerp(p[1], flatQ[i][1], eio(flat))]);
+  if (t < slam) solid(ctx, L.rectP(base[0] - 50, base[1] - 26, 100, 30), nk('#6B4A36'), { seed: 760, ink: NI });          // 木座
+  const slipPoly = quad.map(p => p);
+  solid(ctx, L.prep(slipPoly, true), nk('#D8C48A'), { sh: nk('#B9A266'), seed: 761, ink: NI, lit: [6, -4] });
+  for (const k of [0.15, 0.85]) { const a = [lerp(quad[0][0], quad[3][0], k), lerp(quad[0][1], quad[3][1], k)], b = [lerp(quad[1][0], quad[2][0], k), lerp(quad[1][1], quad[2][1], k)]; ink(ctx, L.prep([a, b], false), 1, { seed: 762, w: 4, col: nk('#6B4A36') }); }
+  const tq = [[lerp(quad[0][0], quad[3][0], 0.1), lerp(quad[0][1], quad[3][1], 0.1)], [lerp(quad[1][0], quad[2][0], 0.1), lerp(quad[1][1], quad[2][1], 0.1)], [lerp(quad[1][0], quad[2][0], 0.9), lerp(quad[1][1], quad[2][1], 0.9)], [lerp(quad[0][0], quad[3][0], 0.9), lerp(quad[0][1], quad[3][1], 0.9)]];
+  const prog = clamp((t - w0) / (w1 - w0)), tip = INKT.writeOn(ctx, S_('jilei'), tq, { col: nk(RED), progress: prog, clip: slipPoly, seed: 3 });
+  // 写字的手（笔尖压在正在写的那一笔上）/ 抓起令签拍下去的手
+  const reach = keys([[w0 - 0.35, 0], [w0, 1, 'out'], [w1, 1], [w1 + 0.15, 0]])(t);
+  if (reach > 0.02 && t < grab) { const home = [X + 140, 1060], tp = tip || [quad[1][0], quad[1][1] + 40]; ST.writingArm(ctx, fig, X, GY, [lerp(home[0], tp[0], eo(reach)), lerp(home[1], tp[1], eo(reach))]); }
+  if (t >= grab && t < slam + 0.3) { const top = [(quad[0][0] + quad[1][0]) / 2, (quad[0][1] + quad[1][1]) / 2]; ST.writingArm(ctx, fig, X, GY, [top[0] + 20, top[1] + 30]); }
+  if (L.LANG === 'en' && t > tW) { const p = [(quad[2][0] + quad[3][0]) / 2, Math.max(quad[2][1], quad[3][1]) + 50]; ctx.save(); ctx.font = '36px ZenHei'; ctx.textAlign = 'center'; ctx.lineWidth = 8; ctx.strokeStyle = '#14121c'; ctx.strokeText('chicken rib', p[0], p[1]); ctx.fillStyle = '#F3EBDD'; ctx.fillText('chicken rib', p[0], p[1]); ctx.restore(); }
+  burst(ctx, base[0] + 20, A.CT.top, t, slam, { n: 9, r0: 120, len: 50, col: NI });
+  ev(slam, 'slap', 0); ev(w0, 'brush', 0); ev(w0 + 0.5, 'brush', 0);
 }
 // ---------- 4：营火边，令签在将官手里传来传去，人人一头问号 ----------
 const OFF_X = [800, 970, 1330, 1500], OFF_DIR = [1, 1, -1, -1], OFF_GY = 1400;
@@ -163,8 +177,9 @@ function s17(ctx, t) {
     solid(ctx, cv, NT.N('#3E5A7A', 0.6 - 0.4 * cool), { sh: NT.N('#2F4862', 0.5), seed: 1123 });
     for (let i = 0; i < 4; i++) ink(ctx, prep([[spine - 30, top + 60 + i * 230], [spine + 4, top + 60 + i * 230]], false), 1, { seed: 1124 + i, w: 5, col: '#E8DDC6' });
     const title = S_('book_title'); ctx.save(); ctx.translate(spine - 380, top + 60); solid(ctx, rectP(0, 0, 90, 560), '#EFE3C4', { seed: 1130, noShadow: true });
-    ctx.fillStyle = '#2A2440'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    if (L.LANG === 'zh') { ctx.font = '66px WenKai'; [...title].forEach((c, i) => ctx.fillText(c, 45, 80 + i * 110)); } else { ctx.save(); ctx.translate(45, 280); ctx.rotate(Math.PI / 2); ctx.font = '34px WenKai'; ctx.fillText(title, 0, 0); ctx.restore(); }
+    const lab = [[0, 0], [90, 0], [90, 560], [0, 560]];
+    if (L.LANG === 'zh') INKT.writeOn(ctx, title, [[10, 30], [80, 30], [80, 530], [10, 530]], { col: '#2A2440', clip: lab, seed: 17 });
+    else INKT.writeOn(ctx, title, [[78, 20], [78, 540], [12, 540], [12, 20]], { col: '#2A2440', clip: lab, seed: 17, vertical: false, px: 120 });   // 英文横写、整串转 90°
     ctx.restore(); burst(ctx, spine - 240, top + 430, t, tClose, { n: 11, r0: 300, len: 70, dur: 0.45, spread: 0.55, col: '#2A2440' }); }
   // 冷下来：从这里开始一路变冷变暗
   if (cool > 0) { ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = `rgba(150,160,190,${0.35 * cool})`; ctx.fillRect(0, 0, W, H); ctx.restore(); }

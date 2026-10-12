@@ -25,7 +25,7 @@ function drawYard(ctx, t, { night = 0, lamp = 0, door = 0 } = {}) {
   const ink_ = night > 0.5 ? NI : '#2A2440';
   // 天空：黄昏是暖灰色带，夜里换成夜空
   if (night < 1) { const bands = ['#B9A79A', '#C7AE96', '#D3B48E', '#D9B082']; bands.forEach((c, i) => { const y = -40 + i * 260; const P = [[-60, y]]; for (let x = -60; x <= W + 60; x += 60) P.push([x, y + 14 * Math.sin(x / 150 + i)]); P.push([W + 60, GROUND], [-60, GROUND]); fillP(ctx, prep(P, true), c, 900 + i); }); }
-  if (night > 0) { ctx.save(); ctx.globalAlpha = night; nightSky(ctx, W, GROUND - 200, t, { stars: 30, seed: 9 }); moonDisc(ctx, MOONP[0], MOONP[1], 60, NI); ctx.restore(); }
+  if (night > 0) { ctx.save(); ctx.globalAlpha = night; ctx.fillStyle = NT.SKY[0]; ctx.fillRect(-400, -400, W + 800, GROUND + 400); ctx.translate(-200, 0); nightSky(ctx, W + 400, GROUND - 200, t, { stars: 34, seed: 9 }); ctx.translate(200, 0); moonDisc(ctx, MOONP[0], MOONP[1], 60, NI); ctx.restore(); }
   // 院墙
   const wall = prep([[-60, 820], [W + 60, 820], [W + 60, GROUND], [-60, GROUND]], true);
   solid(ctx, wall, col('#BDB3A8', 540, 1000, night, lamp), { sh: col('#A69D8F', 540, 1000, night, lamp), seed: 910, ink: ink_, lit: [0, -16], noShadow: true });

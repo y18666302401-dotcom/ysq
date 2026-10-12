@@ -53,4 +53,15 @@ const shakeAt = (t, t0, amp = 8, dur = 0.25) => t > t0 && t < t0 + dur ? amp * M
 const EVENTS = [];
 const ev = (t, type, pan = 0, extra = {}) => EVENTS.push(Object.assign({ t: +t.toFixed(3), type, pan: +pan.toFixed(2) }, extra));
 
-module.exports = { cue, SH, local, keys, figure, holdBefore, handW, headW, toLocal, gait, walkPose, stepTimes, camera, shakeAt, EVENTS, ev, slipParts };
+// 写字的手：笔尖压在 tip 上，手在笔尖左上方，小臂（袖子）从肩膀方向伸过来——画在道具前面
+function writingArm(ctx, fig, x, gy, tip, { scale = 1.35, robe = '#3E3A4A', robeSh = '#2E2B38', trim = '#C9A14A', skin = C.SKIN, skinSh = C.SKIN_SH } = {}) {
+  const { prep, ell, solid, ink } = L, hw = [tip[0] - 34, tip[1] - 62], sh = [x + scale * fig.joints.ns[0], gy + scale * fig.joints.ns[1]], el = [lerp(sh[0], hw[0], 0.55) - 30, lerp(sh[1], hw[1], 0.55) + 40];
+  solid(ctx, C.limbPoly([el, [lerp(el[0], hw[0], 0.5), lerp(el[1], hw[1], 0.5) + 6], hw], [[0, 46], [0.8, 40], [1, 30]]).poly, robe, { sh: robeSh, seed: 1642, lit: [6, -6] });
+  ink(ctx, L.prep([[hw[0] - 20, hw[1] + 4], [hw[0] - 6, hw[1] - 16]], false), 1, { seed: 1643, w: 4, col: trim });
+  const back = [hw[0] - (tip[0] - hw[0]) * 0.7, hw[1] - (tip[1] - hw[1]) * 0.7];
+  solid(ctx, C.limbPoly([back, hw, tip], [[0, 10], [0.85, 9], [1, 18]]).poly, '#8C6A45', { seed: 1640, noShadow: true });
+  ctx.fillStyle = '#232845'; ctx.beginPath(); ctx.arc(tip[0], tip[1], 10, 0, 7); ctx.fill();
+  solid(ctx, prep(C.ell(hw[0], hw[1], 21, 17, 0.6, 20), true), skin, { sh: skinSh, seed: 1641, noShadow: true });
+}
+
+module.exports = { writingArm, cue, SH, local, keys, figure, holdBefore, handW, headW, toLocal, gait, walkPose, stepTimes, camera, shakeAt, EVENTS, ev, slipParts };

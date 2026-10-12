@@ -3,6 +3,7 @@
 const L = require('./lib');
 const { C } = L;
 const { INK, taper, smooth, add } = C;
+const INKT = require('./inkText');
 
 // 交领：两道赭黄领缘从两肩斜交到胸前
 const crossCollar = trim => (g, R, tw, T) => {
@@ -54,7 +55,7 @@ function slipParts(c, ang, { w = 30, h = 120, txt = '', txtCol = INK, seed = 0 }
   const body = smooth([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(T), true, 1);
   return [{ name: 'slip' + seed, P: body, col: '#D8C48A', sh: '#B9A266', lit: [5, -3], seed: 120 + seed, after: g => {
     for (const y of [-0.3, 0.3]) taper(g, [T([-w / 2 - 2, y * h]), T([0, y * h + 2]), T([w / 2 + 2, y * h])], 4, C.tc('#6B4A36'), { seed: 7 + seed, ends: [1, 1] });
-    if (txt) { g.save(); const p = T([0, -h * 0.02]); g.translate(p[0], p[1]); g.rotate(ang); g.fillStyle = C.tc(txtCol); g.font = `${Math.round(w * 1.2)}px WenKai`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, 0, 0); g.restore(); }
+    if (txt) { const n = [...txt].length, ch = Math.min(w * 1.05, h * 0.5 / n); INKT.writeOn(g, txt, INKT.rectQuad(T([0, -h * 0.02]), ch, ch * n, ang), { col: C.tc(txtCol), clip: body, seed: 30 + seed, px: 160 }); }   // 字写在竹片上（吃进竹面）
   } }];
 }
 

@@ -5,9 +5,11 @@ const L = require('./lib');
 const { C, NT, W, H, S_, eo, eio, backOut, prep, rectP, ink, fillP, solid, burst, glyph, nameCard, slipLabel } = L;
 const { clamp, lerp, add, ell } = C;
 const SC = require('./setC');
-const { cue, local, keys, figure, holdBefore, handW, headW, walkPose, camera, shakeAt, ev, slipParts } = require('./stage');
+const { cue, local, keys, figure, holdBefore, handW, headW, toLocal, walkPose, camera, shakeAt, ev, slipParts } = require('./stage');
 const { CAO, YANG, GUESTS, ZHI, PI, RUNNER } = require('./cast');
 const RED = '#C8372D';
+const INKT = require('./inkText');
+const { brush } = require('./shotsB');
 const CAO_X = 420, CAO_GY = 1372, CUP = [545, 1146];
 
 const night = () => ({ pos: SC.LIGHT, k: 0.75, moon: SC.MOON });
@@ -31,15 +33,31 @@ function cup(ctx, x, y, { lid = [0, 0], lidRot = 0, morph = 0, day = true, label
     const P = rectP(-70 * sx, -90 * sy, 140 * sx, 90 * sy); solid(ctx, P, dc('#B8664A'), { sh: dc('#96503A'), seed: 1610, lit: [10, -6] });
     solid(ctx, rectP(-78 * sx, -100 * sy, 156 * sx, 22), dc('#8C4A34'), { seed: 1611 });
     for (const fx of [-0.3, 0.3]) ink(ctx, prep([[fx * 140 * sx, -100 * sy], [fx * 140 * sx, 0]], false), 1, { seed: 1612, w: 4, col: '#6B4A36' });
-    if (label) { ctx.fillStyle = '#EFE3C4'; ctx.fillRect(-60, -70 * sy, 120, 46); ctx.strokeStyle = '#232845'; ctx.lineWidth = 3; ctx.strokeRect(-60, -70 * sy, 120, 46); ctx.fillStyle = '#2A2440'; ctx.font = '34px WenKai'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, 0, -70 * sy + 24); }
+    if (label) { const lp = [[-62, -70 * sy], [62, -70 * sy], [62, -70 * sy + 48], [-62, -70 * sy + 48]]; solid(ctx, L.prep(lp, true), '#EFE3C4', { seed: 1613, noShadow: true }); INKT.writeOn(ctx, label, [[-56, -70 * sy + 4], [56, -70 * sy + 4], [56, -70 * sy + 44], [-56, -70 * sy + 44]], { col: '#2A2440', clip: lp, seed: 14, vertical: false }); }   // 标签纸上写的字
     ctx.restore(); return; }
   const body = prep([[x - 52, y - 70], [x + 52, y - 70], [x + 40, y - 6], [x + 26, y], [x - 26, y], [x - 40, y - 6]], true);
   solid(ctx, body, dc('#3A2C2A'), { sh: dc('#2A1F1E'), seed: 1615, lit: [12, -4] }); ink(ctx, prep([[x - 48, y - 52], [x + 48, y - 52]], false), 1, { seed: 1616, w: 4, col: dc('#C9A14A') });
   fillP(ctx, prep(ell(x, y - 70, 52, 12, 0, 24), true), '#F6F0E4', 1617);
+  if (!lid) return;
   const lx = x + lid[0], ly = y - 76 + lid[1]; ctx.save(); ctx.translate(lx, ly); ctx.rotate(lidRot);
   solid(ctx, prep([[-58, 0], [58, 0], [44, -26], [-44, -26]], true), dc('#3A2C2A'), { seed: 1618, lit: [8, -4] }); solid(ctx, prep(ell(0, -30, 12, 8, 0, 14), true), dc('#C9A14A'), { seed: 1619, noShadow: true }); ctx.restore();
 }
 const LID_HE = (x, y) => [x, y - 96];
+// 盖子立起来、正面朝镜头，靠在杯子左边：外圈黑漆，盖面是浅色木胎（红字写在上面才看得清）
+const LID_REST = [CUP[0] - 110, 1098], LID_R = [56, 50];
+function lidFace(ctx, c, { day = true, prog = 1, flat = 0, seed = 11 } = {}) {
+  const dc = col => day ? col : NT.N(col, 0.6), ry = LID_R[1] * (1 - 0.75 * flat);
+  const rim = prep(ell(c[0], c[1], LID_R[0], ry, 0, 40), true), face = ell(c[0], c[1], LID_R[0] - 9, ry - 9, 0, 40);
+  solid(ctx, rim, dc('#3A2C2A'), { seed: 1630, lit: [6, -6] });
+  solid(ctx, prep(face, true), dc('#D9B98A'), { sh: dc('#C49F6C'), seed: 1631, lit: [8, -6], noShadow: true });
+  for (let k = -2; k <= 2; k++) ink(ctx, prep([[c[0] - 36, c[1] + k * 13 * (1 - 0.75 * flat)], [c[0] + 36, c[1] + k * 13 * (1 - 0.75 * flat) + 3]], false), 1, { seed: 1632 + k, w: 2, col: dc('#B8925E') });   // 木纹
+  if (flat > 0.5 || prog <= 0) return null;
+  const q = INKT.rectQuad(c, 68, 68 * (1 - 0.75 * flat)), tip = INKT.writeOn(ctx, S_('he'), q, { col: day ? RED : NT.N(RED, 0.6), progress: prog, clip: face, seed });
+  return { tip, q };
+}
+// 英文版：字下方的小注释
+function glossAt(ctx, txt, x, y) { ctx.save(); ctx.font = '36px ZenHei'; ctx.textAlign = 'center'; ctx.lineWidth = 8; ctx.strokeStyle = '#14121c'; ctx.strokeText(txt, x, y); ctx.fillStyle = '#F3EBDD'; ctx.fillText(txt, x, y); ctx.restore(); }
+const BRUSH_ANG = 0.6, brushTip = () => add([30, -24], C.rot([0, -80], BRUSH_ANG));
 
 // ---------- 12：一杯酪送上来，曹操尝了一点，在盖上写了个红"合" ----------
 function s12(ctx, t) {
@@ -54,14 +72,34 @@ function s12(ctx, t) {
   if (t < put + 1.3) { const dir = t < put + 0.3 ? -1 : 1, w = walkPose(t, xf, s.start, 1440, dir, { period: 0.45, lift: 20 });
     figure(ctx, RUNNER, Object.assign(w.P, { lean: 0.1, hN: t < put ? [80, -190] : [40, -160], hF: t < put ? [70, -186] : [-20, -170], look: [1, 0.3], brow: 0.3, smile: 0.4, elbowPref: [-0.5, 1] }), w.x, 1440, dir, { scale: 1.3 }); }
   const cupX = t < put ? xf(t) - 110 : CUP[0], cupY = t < put ? 1190 : CUP[1];
-  // 曹操：拿起盖子 → 舀一口尝 → 在盖上写字
-  const taste = keys([[put + 0.4, 0], [put + 0.8, 1], [put + 1.4, 1], [put + 1.7, 0]])(t), write = keys([[tHe - 0.6, 0], [tHe - 0.3, 1], [tHe + 0.1, 1], [tHe + 0.4, 0]])(t);
-  cao(ctx, t, { hN: [lerp(lerp(78, 110, write), 60, taste), lerp(lerp(-170, -160, write), -250, taste) + 8 * Math.sin(t * 14) * write], look: taste > 0.5 ? [0.3, -0.1] : [0.6, 0.6], brow: 0.3, mouth: taste > 0.5 ? 0.3 : 0, smile: taste > 0.9 ? 0.5 : 0.1, lid: taste > 0.5 ? 0.6 : 0.2 }, { day: true });
+  // 曹操：揭开盖子 → 舀一口尝 → 把盖子立在杯边，提笔在盖面上一笔一笔写"合"
+  const w0 = tHe - 0.95, w1 = tHe - 0.1, prog = clamp((t - w0) / (w1 - w0));
+  const taste = keys([[put + 0.4, 0], [put + 0.8, 1], [put + 1.4, 1], [put + 1.7, 0]])(t), reach = keys([[w0 - 0.4, 0], [w0, 1, 'out'], [w1, 1], [w1 + 0.3, 0]])(t);
+  const lidK = clamp((t - put - 0.25) / 0.35), lidC = [lerp(CUP[0], LID_REST[0], eo(lidK)), lerp(CUP[1] - 84, LID_REST[1], eo(lidK)) - 60 * Math.sin(Math.PI * lidK)];
+  // 先算出这一帧笔尖要到的位置（写字时盖子已经立好）
+  let tipNow = null;
+  if (t >= w0 && t <= w1 + 0.05) { const src = INKT.inkSource(S_('he'), { col: RED, seed: 11 }), rv = INKT.reveal(src, prog), q = INKT.rectQuad(LID_REST, 68, 68);
+    if (rv.tip) { const [a, b, c2, d2] = q, u_ = rv.tip[0] / src.W, v_ = rv.tip[1] / src.H, top = [a[0] + (b[0] - a[0]) * u_, a[1] + (b[1] - a[1]) * u_], bot = [d2[0] + (c2[0] - d2[0]) * u_, d2[1] + (c2[1] - d2[1]) * u_]; tipNow = [top[0] + (bot[0] - top[0]) * v_, top[1] + (bot[1] - top[1]) * v_]; } }
+  const bt = brushTip(), tgt = tipNow || [LID_REST[0] + 20, LID_REST[1] + 20], tl = toLocal(tgt[0], tgt[1], CAO_X, CAO_GY, 1), want = [tl[0] - bt[0], tl[1] - bt[1]];
+  const hn = taste > 0 ? [lerp(78, 60, taste), lerp(-170, -250, taste)] : [lerp(78, want[0], reach), lerp(-170, want[1], reach)];
+  const caoFig = cao(ctx, t, { hN: hn, look: taste > 0.5 ? [0.3, -0.1] : reach > 0.3 ? [0.4, 0.9] : [0.6, 0.6], brow: 0.3, mouth: taste > 0.5 ? 0.3 : 0, smile: taste > 0.9 ? 0.5 : 0.1, lid: taste > 0.5 ? 0.6 : 0.2 }, { day: true, props: reach > 0.05 ? f => holdBefore(f, brush(add(f.joints.hN, [30, -24]), BRUSH_ANG)) : null });
   SC.drawTable(ctx, t); SC.drawLamp(ctx, t);
-  const lidOff = t > put + 0.3 ? [-130, 70] : [0, 0];
-  cup(ctx, cupX, cupY, { lid: lidOff });
-  const [hx, hy] = LID_HE(CUP[0] - 130, CUP[1] + 70); glyph(ctx, S_('he'), hx, hy + 40, 80, RED, { s: clamp(backOut((t - (tHe - 0.2)) / 0.3)), stroke: '#EFE6D6', gloss: L.LANG === 'en' && t > tHe ? S_('gloss_he') : '' });
-  ev(put, 'thud_soft', 0.2); ev(put + 0.8, 'sip', -0.1); ev(tHe - 0.2, 'brush', -0.1);
+  cup(ctx, cupX, cupY, { lid: t < put + 0.25 ? [0, 0] : null });
+  if (t >= put + 0.25) lidFace(ctx, lidC, { prog: lidK >= 1 ? prog : 0, flat: 1 - lidK });
+  // 盖子在曹操身前：写字时把握笔的手和笔重画在盖子前面，笔尖压在正在写的那一笔上
+  if (reach > 0.05) {
+    // 笔尖在字上；握笔的手在笔尖左上方；小臂（袖子）从肩膀方向伸过来，盖在盖子前面
+    const tip0 = tipNow || [LID_REST[0] + 10, LID_REST[1] + 10], k = eo(reach);
+    const home = [CAO_X + 60, 1080], tip = [lerp(home[0] + 40, tip0[0], k), lerp(home[1] + 40, tip0[1], k)];
+    const hw = [tip[0] - 34, tip[1] - 62], sh = [CAO_X + 1.35 * caoFig.joints.ns[0], CAO_GY + 1.35 * caoFig.joints.ns[1]], el = [lerp(sh[0], hw[0], 0.55) - 30, lerp(sh[1], hw[1], 0.55) + 40];
+    solid(ctx, C.limbPoly([el, [lerp(el[0], hw[0], 0.5), lerp(el[1], hw[1], 0.5) + 6], hw], [[0, 46], [0.8, 40], [1, 30]]).poly, '#3E3A4A', { sh: '#2E2B38', seed: 1642, lit: [6, -6] });
+    ink(ctx, prep([[hw[0] - 20, hw[1] + 4], [hw[0] - 6, hw[1] - 16]], false), 1, { seed: 1643, w: 4, col: '#C9A14A' });       // 袖口
+    const back = [hw[0] - (tip[0] - hw[0]) * 0.7, hw[1] - (tip[1] - hw[1]) * 0.7];
+    solid(ctx, C.limbPoly([back, hw, tip], [[0, 10], [0.85, 9], [1, 18]]).poly, '#8C6A45', { seed: 1640, noShadow: true });
+    ctx.fillStyle = '#232845'; ctx.beginPath(); ctx.arc(tip[0], tip[1], 10, 0, 7); ctx.fill();
+    solid(ctx, prep(ell(hw[0], hw[1], 21, 17, 0.6, 20), true), C.SKIN, { sh: C.SKIN_SH, seed: 1641, noShadow: true }); }
+  if (L.LANG === 'en' && t > tHe) glossAt(ctx, S_('gloss_he'), LID_REST[0], LID_REST[1] + 82);
+  ev(put, 'thud_soft', 0.2); ev(put + 0.8, 'sip', -0.1); ev(w0, 'brush', -0.1); ev(w0 + 0.45, 'brush', -0.1);
 }
 // ---------- 13（招牌镜头 2）："合"弹起来拆成"人""一""口"；众人愣住，杨修一口吃下 ----------
 function s13(ctx, t) {
@@ -73,13 +111,13 @@ function s13(ctx, t) {
   seated(ctx, GUESTS[0], { look: [1, 0.3], brow: puzzled ? 1.4 : 0.2, mouth: puzzled ? 0.3 : 0, smile: -0.3 }, 880, { dir: -1 }); seated(ctx, GUESTS[1], { look: [1, 0.2], brow: puzzled ? -0.6 : 0, browAng: -0.8, smile: -0.4 }, 1050, { dir: -1 });
   cao(ctx, t, { look: [0.8, 0.4], brow: t > tBite + 0.3 ? -0.5 : 0.4, lid: t > tBite + 0.3 ? 0.45 : 0.2, smile: t > tBite + 0.3 ? -0.2 : 0.2 }, { day: true });
   SC.drawTable(ctx, t); SC.drawLamp(ctx, t);
-  cup(ctx, CUP[0], CUP[1], { lid: [-130, 70] });
+  cup(ctx, CUP[0], CUP[1], { lid: null }); lidFace(ctx, LID_REST, {});
   // 杨修：从右边凑过来，舀一口吃下（得意）
   const reach = keys([[tBite - 0.7, 0], [tBite - 0.3, 1, 'out'], [tBite, 1], [tBite + 0.35, 0]])(t), chew = t > tBite ? Math.abs(Math.sin((t - tBite) * 14)) * Math.exp(-(t - tBite) * 2) : 0;
   figure(ctx, YANG, { fN: [26, 0], fF: [-26, 0], lean: lerp(0.08, 0.36, reach), drop: lerp(30, 50, reach), hN: [lerp(60, 150, reach), lerp(-200, -150, reach)], hF: [30, -180], look: [1, 0.4], brow: 0.6, smile: t > tBite ? 0.9 : 0.5, lid: 0.35, mouth: chew * 0.4, elbowPref: [-0.5, 1] }, 720, 1440, -1, { scale: 1.3 });
   // "合"弹起 → 拆成三块贴纸
-  const [hx0, hy] = LID_HE(CUP[0] - 130, CUP[1] + 70), k = clamp((t - tSplit) / 0.45), up = eo(clamp((u - 0.1) / 0.5)), hx = lerp(hx0, 600, up);
-  if (k <= 0) glyph(ctx, S_('he'), hx, hy + 52 - 200 * up, lerp(54, 150, up), RED, { stroke: '#EFE6D6', gloss: L.LANG === 'en' ? S_('gloss_he') : '' });
+  const hx0 = LID_REST[0], hy = LID_REST[1] - 52, k = clamp((t - tSplit) / 0.45), up = eo(clamp((u - 0.1) / 0.5)), hx = lerp(hx0, 600, up);   // 盖面上的"合"揭起来（盖上的字还在）
+  if (k <= 0 && up > 0) glyph(ctx, S_('he'), hx, hy + 52 - 200 * up, lerp(60, 150, up), RED, { stroke: '#EFE6D6', gloss: L.LANG === 'en' ? S_('gloss_he') : '' });
   else { const cx = hx, cy = hy + 52 - 200; [['ren', -150, -20], ['yi', 0, 30], ['kou', 150, -20]].forEach(([key, dx, dy], i) => glyph(ctx, S_(key), cx + dx * eo(k), cy + dy * eo(k) - 30 * Math.sin(Math.PI * k), 130, RED, { s: lerp(0.8, 1, backOut(k)), rot: (i - 1) * 0.12 * (1 - k), stroke: '#EFE6D6' }));
     if (L.LANG === 'en') { ctx.save(); ctx.font = '40px ZenHei'; ctx.textAlign = 'center'; ctx.lineWidth = 9; ctx.strokeStyle = '#14121c'; ctx.strokeText(S_('gloss_split'), cx, cy + 130); ctx.fillStyle = '#F3EBDD'; ctx.fillText(S_('gloss_split'), cx, cy + 130); ctx.restore(); }
     burst(ctx, cx, cy, t, tSplit, { n: 9, r0: 110, len: 46, spread: 0.7 }); }
@@ -94,7 +132,7 @@ function s14(ctx, t) {
   cao(ctx, t, { look: [0.6, 0.6], brow: 0.2 }, { day: true });
   SC.drawTable(ctx, t); SC.drawLamp(ctx, t);
   const m = clamp((t - tBox) / 0.45);
-  if (m <= 0) cup(ctx, CUP[0], CUP[1], { lid: [-130, 70] }); else cup(ctx, CUP[0], CUP[1], { morph: m, label: m > 0.6 ? S_('box') : '' });
+  if (m <= 0) { cup(ctx, CUP[0], CUP[1], { lid: null }); lidFace(ctx, LID_REST, {}); } else cup(ctx, CUP[0], CUP[1], { morph: m, label: m > 0.6 ? S_('box') : '' });
   if (L.LANG === 'en' && m > 0.6) { ctx.save(); ctx.font = '34px ZenHei'; ctx.textAlign = 'center'; ctx.lineWidth = 8; ctx.strokeStyle = '#14121c'; ctx.strokeText(S_('gloss_box'), CUP[0], CUP[1] - 150); ctx.fillStyle = '#F3EBDD'; ctx.fillText(S_('gloss_box'), CUP[0], CUP[1] - 150); ctx.restore(); }
   burst(ctx, CUP[0], CUP[1] - 60, t, tBox + 0.1, { n: 8, r0: 100, len: 40, spread: 0.7 });
   // 屏幕右上角：一页线装书翻起，标签"小说"
