@@ -23,6 +23,7 @@ text 里可以使用停顿标签 <short pause>、<long pause>。
   audio/durations.json  每段的真实时长（秒）
 
 API Key 读取顺序：环境变量 GEMINI_API_KEY → 用户主目录下的 .gemini_api_key 文件。
+文件里可以放多个 Key（每行一个）：前一个 Key 当天额度用完时，自动换下一个继续。
 Key 不要写进项目文件夹（项目可能会被分享或上传）。
 默认不加语气指令（style），实测默认演绎更自然；只在用户要求时用 --style。
 """
@@ -79,8 +80,9 @@ def synth(text, voice, model, style, key, retries=4):
     raise RuntimeError(last)
 
 
-def build_whole_text(beats):
-    """分镜分界在句末才加长停顿；在句子中间不加，避免把一句话读成两截。"""
+def build_whole_text(beats, pause="long"):
+    """分镜分界在句末才加停顿（pause: long / short / none）；在句子中间不加，避免把一句话读成两截。
+    long 的实际长度不稳定（实测 1.6–2.6 秒，整条片子会被拖慢）；用户嫌停顿长时用 short。beats 里手写的停顿标签照原样保留。"""
     parts = []
     for i, b in enumerate(beats):
         t = b["text"].strip()
@@ -88,19 +90,32 @@ def build_whole_text(beats):
         if i < len(beats) - 1:
             bare = t.replace("<long pause>", "").replace("<short pause>", "").rstrip()
             if bare and bare[-1] in "。？！.?!…" and not t.endswith("pause>"):
-                parts.append(" <long pause> ")
+                if pause != "none": parts.append(f" <{pause} pause> ")
     return "".join(parts)
+
+
+class Keys:
+    """多个 Key 轮换：当前 Key 当天额度用完就换下一个；全部用完才抛出 QuotaExhausted。"""
+    def __init__(self, keys): self.keys, self.i = keys, 0
+    def synth(self, *args):
+        while True:
+            try:
+                return synth(*args, self.keys[self.i])
+            except QuotaExhausted:
+                if self.i + 1 >= len(self.keys): raise
+                self.i += 1
+                print(f"第 {self.i} 个 Key 今天的额度用完了，换第 {self.i + 1} 个继续……")
 
 
 def whole(beats, a, key):
     os.makedirs(a.outdir, exist_ok=True)
-    text = build_whole_text(beats)
+    text = build_whole_text(beats, a.pause)
     open(os.path.join(a.outdir, "narration_text.txt"), "w", encoding="utf-8").write(text)
     print(f"整段生成中（{len(beats)} 个分镜，{len(text)} 字符，1 次调用）……")
     try:
-        audio = synth(text, a.voice, a.model, a.style, key)
+        audio = key.synth(text, a.voice, a.model, a.style)
     except QuotaExhausted:
-        sys.exit("今天的调用额度已用完。请明天再试，或在 Google AI Studio 开通付费层。")
+        sys.exit("今天所有 Key 的调用额度都已用完。请明天再试，或在 Google AI Studio 开通付费层。")
     out = os.path.join(a.outdir, "narration.wav")
     open(out, "wb").write(audio)
     with wave.open(out) as w:
@@ -113,18 +128,20 @@ def main():
     ap.add_argument("beats")
     ap.add_argument("outdir")
     ap.add_argument("--voice", default="Charon")
+    ap.add_argument("--pause", default="long", choices=["long", "short", "none"], help="整段模式下句末分镜分界处的停顿")
     ap.add_argument("--model", default="gemini-3.8-flash-tts")
     ap.add_argument("--style", default="", help="语气指令，默认留空")
     ap.add_argument("--only", default="", help="只重录指定分镜，逗号分隔，如 03,07")
     ap.add_argument("--whole", action="store_true", help="整段一次生成，不切分（默认推荐）")
     a = ap.parse_args()
 
-    key = os.environ.get("GEMINI_API_KEY", "").strip()
+    keys = [k for k in [os.environ.get("GEMINI_API_KEY", "").strip()] if k]
     key_file = os.path.join(os.path.expanduser("~"), ".gemini_api_key")
-    if not key and os.path.exists(key_file):
-        key = open(key_file, encoding="utf-8").read().strip()
-    if not key:
-        sys.exit(f"没有找到 API Key。请把 Key 保存到 {key_file}（文件里只放 Key 本身）。")
+    if os.path.exists(key_file):
+        keys += [k.strip() for k in open(key_file, encoding="utf-8").read().splitlines() if k.strip() and k.strip() not in keys]
+    if not keys:
+        sys.exit(f"没有找到 API Key。请把 Key 保存到 {key_file}（每行一个 Key，不放其他内容）。")
+    key = Keys(keys)
     beats = json.load(open(a.beats, encoding="utf-8"))
     if a.whole:
         return whole(beats, a, key)
@@ -141,7 +158,7 @@ def main():
         out = os.path.join(a.outdir, f"beat-{bid}.wav")
         print(f"分镜 {bid} 生成中……")
         try:
-            audio = synth(b["text"], a.voice, a.model, a.style, key)
+            audio = key.synth(b["text"], a.voice, a.model, a.style)
         except QuotaExhausted:
             rest = [str(x["id"]) for x in beats if (not only or str(x["id"]) in only) and str(x["id"]) not in durations]
             sys.exit(f"今天的调用额度已用完（免费层每天只有少量次数）。已完成的分镜已保存。\n"
