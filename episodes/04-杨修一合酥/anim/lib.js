@@ -79,3 +79,35 @@ function video(frameFn, t0, t1, fps, out) { const cv = createCanvas(W, H), ctx =
     ff.on('close', c => res(c)); write(); }); }
 
 module.exports = { C, NT, SUB, W, H, LANG, S_, eo, eio, backOut, prep, rectP, ink, fillP, solid, burst, SHOTS, shot, charTime, wordTime, drawSubs, PAPER_TEX, still, sheet, video, ROOT };
+
+// ---------- 画面文字：竹简式标签、名牌、日期卡、拆字贴纸 ----------
+const pop = (t, t0, d = 0.35) => t < t0 ? 0 : backOut((t - t0) / d);
+// 横放的竹简标签（日期卡 / 地名牌）：被"插"进画面——从上方落下 + 回弹
+function slipLabel(ctx, x, y, text, t, t0, { size = 46, col = '#2A2440', bg = '#E3D19A', font = 'WenKai', anchor = 'left', drop = 120 } = {}) {
+  if (t < t0) return; const k = backOut((t - t0) / 0.4), yy = y - drop * (1 - Math.min(1, (t - t0) / 0.25));
+  ctx.save(); ctx.font = `${size}px ${font}`; const w = ctx.measureText(text).width + size * 1.1, h = size * 1.55;
+  const x0 = anchor === 'center' ? x - w / 2 : x; ctx.translate(x0 + w / 2, yy + h / 2); ctx.scale(1, k); ctx.translate(-(x0 + w / 2), -(yy + h / 2));
+  solid(ctx, rectP(x0, yy, w, h), bg, { sh: '#C9B47A', seed: 300 + text.length, lit: [0, -8] });
+  for (const fx of [size * 0.28 / w, 1 - size * 0.28 / w]) ink(ctx, prep([[x0 + w * fx, yy - 4], [x0 + w * fx, yy + h + 4]], false), 1, { seed: 310, w: 4, col: '#6B4A36' });
+  ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, x0 + w / 2, yy + h / 2 + 2); ctx.restore();
+}
+// 名牌：挂签式落下（姓名薄荷绿，下面一行小字）
+function nameCard(ctx, x, y, name, sub, t, t0) {
+  if (t < t0) return; const k = backOut((t - t0) / 0.45), sw = Math.sin((t - t0) * 6) * Math.exp(-(t - t0) * 2.5) * 0.08;
+  ctx.save(); ctx.translate(x, y - 160 * (1 - Math.min(1, (t - t0) / 0.3))); ctx.rotate(sw);
+  ctx.font = '56px WenKai'; const w1 = ctx.measureText(name).width; ctx.font = '34px WenKai'; const w2 = ctx.measureText(sub).width; const w = Math.max(w1, w2) + 70, h = 150;
+  ink(ctx, prep([[w / 2, -60], [w / 2, 0]], false), 1, { seed: 320, w: 4, col: '#6B4A36' });
+  ctx.save(); ctx.translate(w / 2, 0); ctx.scale(1, k); ctx.translate(-w / 2, 0);
+  solid(ctx, rectP(0, 0, w, h), '#2C2A3A', { sh: '#211F2C', seed: 321, lit: [0, -10], ink: '#141830' });
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.font = '56px WenKai'; ctx.fillStyle = '#9FE3B4'; ctx.fillText(name, w / 2, 50);
+  ctx.font = '34px WenKai'; ctx.fillStyle = '#F3EBDD'; ctx.fillText(sub, w / 2, 110); ctx.restore(); ctx.restore();
+}
+// 单个字的贴纸（墨线描边的大字，可带一行小字注释）
+function glyph(ctx, ch, x, y, size, col, { s = 1, rot = 0, stroke = '#EFE6D6', font = 'WenKai', gloss = '', glossCol = '#F3EBDD', alpha = 1 } = {}) {
+  if (s <= 0 || !ch) return; ctx.save(); ctx.globalAlpha = alpha; ctx.translate(x, y); ctx.rotate(rot); ctx.scale(s, s);
+  ctx.font = `${size}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+  ctx.lineWidth = size * 0.12; ctx.strokeStyle = stroke; ctx.strokeText(ch, 0, 0); ctx.fillStyle = col; ctx.fillText(ch, 0, 0);
+  if (gloss) { ctx.font = `${Math.round(size * 0.26)}px ZenHei`; ctx.lineWidth = 8; ctx.strokeStyle = '#14121c'; ctx.strokeText(gloss, 0, size * 0.72); ctx.fillStyle = glossCol; ctx.fillText(gloss, 0, size * 0.72); }
+  ctx.restore();
+}
+module.exports.pop = pop; module.exports.slipLabel = slipLabel; module.exports.nameCard = nameCard; module.exports.glyph = glyph;

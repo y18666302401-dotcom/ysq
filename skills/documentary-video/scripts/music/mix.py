@@ -27,6 +27,12 @@ BUS = {
     'xylophone':    (-24, [Reverb(.4, .5, .2, .9)]),
     'glockenspiel': (-27, [Reverb(.55, .5, .3, .85)]),
     'orch_perc':    (-23, [Reverb(.5, .5, .2, .9)]),
+    # 中国古代题材（VCSL，sfz_vcsl.py 生成）
+    'guzheng':      (-22, [HighpassFilter(60), Compressor(-22, 2, 5, 150), Reverb(.55, .5, .24, .88)]),
+    'zheng_gliss':  (-24, [HighpassFilter(80), Reverb(.6, .5, .28, .85)]),
+    'xun':          (-25, [HighpassFilter(120), LowpassFilter(5000), Reverb(.7, .5, .3, .82)]),
+    'bianzhong':    (-23, [HighpassFilter(90), Reverb(.75, .5, .32, .8)]),
+    'han_perc':     (-22, [Compressor(-20, 2.5, 5, 120), Reverb(.45, .5, .18, .9)]),
 }
 
 def active_db(a, rel=-30):

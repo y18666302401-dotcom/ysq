@@ -80,7 +80,7 @@ function answerSlip(t) {
 
 // ---------- 一帧 ----------
 function frame(ctx, t) {
-  G.K = Math.floor(t * 12 + 1e-6);
+  G.K = Math.floor(t * 12 + 1e-6); SC_.setMode('night');
   const u = clamp((t - SH.start) / (SH.end - SH.start));
   const shake = t > T.land && t < T.land + 0.25 ? 7 * Math.exp(-(t - T.land) * 18) * Math.sin((t - T.land) * 70) : 0;
   const cam = { s: lerp(1.3, 1.36, eio(u)), dx: lerp(40, 70, eio(u)) };

@@ -36,11 +36,22 @@ if [ ! -d VSCO-2-CE ]; then                                                     
 fi
 
 python3 "$HERE/sfz_gen.py" VSCO-2-CE sfz
+# 中国古代题材的乐器（VCSL，CC0，约 350 MB）：筝、陶笛（当埙）、管钟（当编钟）、框鼓（当建鼓）、锣、木鱼、拍板、梆子
+if [ ! -d VCSL ]; then
+  git clone -q --depth 1 --filter=blob:none --no-checkout https://github.com/sgossner/VCSL
+  git -C VCSL sparse-checkout init --no-cone
+  git -C VCSL sparse-checkout set "/Chordophones/Zithers/Dan Tranh/Normal/" "/Chordophones/Zithers/Dan Tranh/Gliss/" "/Chordophones/Zithers/Dan Tranh/Tremolo/" \
+    "/Aerophones/Edge-blown Aerophones/Ocarina, Typical/Sustains/Sus/" "/Membranophones/Struck Membranophones/Frame Drum/" "/Idiophones/Struck Idiophones/Gong 1/" \
+    "/Idiophones/Struck Idiophones/Woodblock/" "/Idiophones/Struck Idiophones/Tubular Bells 1/" "/Idiophones/Struck Idiophones/Claves/" "/Idiophones/Struck Idiophones/Slit Drum/"
+  git -C VCSL checkout -q HEAD
+fi
+python3 "$HERE/sfz_vcsl.py" VCSL sfz
 python3 - "$K" <<'PY'
 import json, os, sys
 k = sys.argv[1]; s = lambda n: os.path.join(k, 'sfz', n + '.sfz')
 m = {'piano': os.path.join(k, 'SalamanderGrandPiano', 'Salamander Grand Piano V3.sfz'), 'drums': os.path.join(k, 'SamsSonor', 'SamsSonor.sfz')}
-m.update({n: s(n) for n in ['violins_sus', 'violas_sus', 'cellos_sus', 'violins_pizz', 'cellos_pizz', 'xylophone', 'glockenspiel', 'orch_perc']})
+m.update({n: s(n) for n in ['violins_sus', 'violas_sus', 'cellos_sus', 'violins_pizz', 'cellos_pizz', 'xylophone', 'glockenspiel', 'orch_perc',
+                            'guzheng', 'zheng_gliss', 'xun', 'bianzhong', 'han_perc']})
 json.dump(m, open(os.path.join(k, 'sfzmap.json'), 'w'), indent=1, ensure_ascii=False); print('→', os.path.join(k, 'sfzmap.json'))
 PY
 echo "装好了。试一下：python3 $HERE/score_cat_example.py out && python3 $HERE/render.py out $K/sfzmap.json && python3 $HERE/mix.py out --duration 15"

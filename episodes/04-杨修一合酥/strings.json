@@ -1,4 +1,162 @@
 {
- "slip_q": {"zh": "教", "en": "Q"},
- "slip_a": {"zh": "答", "en": "A"}
+ "slip_q": {
+  "zh": "教",
+  "en": "Q"
+ },
+ "slip_a": {
+  "zh": "答",
+  "en": "A"
+ },
+ "date_01": {
+  "zh": "建安二十四年五月 · 汉中",
+  "en": "May, 219 AD · Hanzhong"
+ },
+ "map_hanzhong": {
+  "zh": "汉中",
+  "en": "Hanzhong"
+ },
+ "map_yangping": {
+  "zh": "阳平",
+  "en": "Yangping"
+ },
+ "map_changan": {
+  "zh": "长安",
+  "en": "Chang'an"
+ },
+ "map_liu": {
+  "zh": "刘备",
+  "en": "Liu Bei"
+ },
+ "map_cao": {
+  "zh": "曹军",
+  "en": "Cao's army"
+ },
+ "jilei": {
+  "zh": "鸡肋",
+  "en": "鸡肋"
+ },
+ "name_yang": {
+  "zh": "杨修",
+  "en": "Yang Xiu"
+ },
+ "sub_yang": {
+  "zh": "175–219 · 主簿",
+  "en": "175–219 · Secretary"
+ },
+ "name_cao": {
+  "zh": "曹操",
+  "en": "Cao Cao"
+ },
+ "sub_cao": {
+  "zh": "155–220 · 魏王",
+  "en": "155–220 · King of Wei"
+ },
+ "name_zhi": {
+  "zh": "曹植",
+  "en": "Cao Zhi"
+ },
+ "sub_zhi": {
+  "zh": "192–232 · 曹操之子",
+  "en": "192–232 · Cao Cao's son"
+ },
+ "name_pi": {
+  "zh": "曹丕",
+  "en": "Cao Pi"
+ },
+ "sub_pi": {
+  "zh": "187–226 · 曹操之子",
+  "en": "187–226 · Cao Cao's son"
+ },
+ "slip_home": {
+  "zh": "归",
+  "en": "归"
+ },
+ "date_16": {
+  "zh": "五月",
+  "en": "May"
+ },
+ "huo": {
+  "zh": "活",
+  "en": "活"
+ },
+ "kuo": {
+  "zh": "阔",
+  "en": "阔"
+ },
+ "men": {
+  "zh": "门",
+  "en": "门"
+ },
+ "gloss_huo": {
+  "zh": "",
+  "en": "alive"
+ },
+ "gloss_men": {
+  "zh": "",
+  "en": "gate"
+ },
+ "gloss_kuo": {
+  "zh": "",
+  "en": "wide"
+ },
+ "he": {
+  "zh": "合",
+  "en": "合"
+ },
+ "ren": {
+  "zh": "人",
+  "en": "人"
+ },
+ "yi": {
+  "zh": "一",
+  "en": "一"
+ },
+ "kou": {
+  "zh": "口",
+  "en": "口"
+ },
+ "gloss_he": {
+  "zh": "",
+  "en": "together"
+ },
+ "gloss_split": {
+  "zh": "",
+  "en": "person · one · mouth"
+ },
+ "box": {
+  "zh": "一合酥",
+  "en": "一合酥"
+ },
+ "gloss_box": {
+  "zh": "",
+  "en": "a box of pastry"
+ },
+ "novel_tag": {
+  "zh": "小说",
+  "en": "novel"
+ },
+ "book_title": {
+  "zh": "三国演义",
+  "en": "Romance of the Three Kingdoms"
+ },
+ "date_22": {
+  "zh": "建安二十四年秋",
+  "en": "Autumn, 219 AD"
+ },
+ "q_title": {
+  "zh": "杨修死于什么？",
+  "en": "What killed Yang Xiu?"
+ },
+ "q_a": {
+  "zh": "A  太聪明",
+  "en": "A  Too clever"
+ },
+ "q_b": {
+  "zh": "B  站错队",
+  "en": "B  Wrong side"
+ },
+ "heir": {
+  "zh": "继承人",
+  "en": "heir"
+ }
 }
