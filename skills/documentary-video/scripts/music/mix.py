@@ -21,6 +21,7 @@ BUS = {
     'violins_pizz': (-25, [HighpassFilter(150), Reverb(.45, .5, .2, .9)]),
     'cellos_pizz':  (-24, [HighpassFilter(45), Reverb(.4, .5, .14, .92)]),
     'drums':        (-26, [Compressor(-22, 3, 5, 100), Reverb(.25, .5, .08, .95)]),
+    'drums_cc0':    (-26, [Compressor(-22, 3, 5, 100), Reverb(.25, .5, .08, .95)]),
     'pad':          (-29, [HighpassFilter(200), LowpassFilter(6000), Chorus(.6, .2), Reverb(.8, .5, .35, .8)]),
     'arp':          (-28, [HighpassFilter(300), Delay(.25, .3, .2), Reverb(.5, .5, .22, .85)]),
     'xylophone':    (-24, [Reverb(.4, .5, .2, .9)]),

@@ -73,3 +73,13 @@ if __name__ == '__main__':
         51: (C + 'susp/susp_hit_softmall_roll2_cresc.wav', 'ampeg_release=0.2'),  # 吊镲渐强滚奏：采样在 3.8 秒处最响
         52: (C + 'susp/susp_hit_softmall_mp.wav', ''),
     }, release=2.5)
+    # CC0 鼓组（VSCO-2 的 drums/），键位和 Sam's Sonor 一致，商用时把声部名 drums 换成 drums_cc0 即可；没有踩镲，用吊镲的金属轻击代替
+    D = 'VSCO 1 Percussion/drums/'
+    if os.path.isdir(os.path.join(src, D)):
+        hits(src, out, 'drums_cc0', {
+            36: (D + 'bass/bdrum_f_1.wav', ''),                          # 底鼓
+            37: (D + 'snare/drum1/snare1_click.wav', ''),               # 边击
+            38: (D + 'snare/drum1/snare1_f_1.wav', ''),
+            40: (D + 'snare/drum1/snare1_ff_1.wav', ''),                # 军鼓
+            42: (C + 'susp/susp_hit_metal_1.wav', 'ampeg_release=0.06 volume=-8'),   # 代替闭镲
+        }, release=0.8)

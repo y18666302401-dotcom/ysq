@@ -2,7 +2,10 @@
 """整段配音对时 + 逐段检查。
 
 用法:
-  python align_shots.py audio/beats.json audio/narration.wav audio/ [--model small]
+  python align_shots.py audio/beats.json audio/narration.wav audio/ --lang zh [--model small]
+
+--lang 填 PROJECT.md 里的旁白语言（Whisper 语言代码）：中文 zh，英文 en，其他语言如 ja、es。
+英文等拼音文字按字母对齐（忽略大小写、空格和标点），chartimes 里是每个字母的时刻。
 
 做什么:
   1. 用 Whisper 识别整段配音，得到每个字的发音时刻；
@@ -29,24 +32,27 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("beats"); ap.add_argument("wav"); ap.add_argument("outdir")
     ap.add_argument("--model", default="small")
+    ap.add_argument("--lang", required=True, help="旁白语言的 Whisper 代码，如 zh、en")
     a = ap.parse_args()
+    prompt = {"zh": "以下是普通话纪录片旁白。", "en": "The following is documentary narration."}.get(a.lang)
     from faster_whisper import WhisperModel
     import scipy.signal as ss
     beats = json.load(open(a.beats, encoding="utf-8"))
     x, sr = load_wav(a.wav); dur = len(x) / sr
     x16 = ss.resample_poly(x, 16000, sr).astype(np.float32)  # 传数组，避开部分 av 版本读文件的兼容问题
     m = WhisperModel(a.model, device="cpu", compute_type="int8")
-    segs, _ = m.transcribe(x16, language="zh", word_timestamps=True, initial_prompt="以下是普通话纪录片旁白。")
+    segs, _ = m.transcribe(x16, language=a.lang, word_timestamps=True, initial_prompt=prompt)
+    # 只保留文字和数字，其余（空格、中英文标点、停顿标签）全部去掉；统一小写
+    clean = lambda s: re.sub(r"[\W_]", "", re.sub(r"<[^>]+>", "", s)).lower()
     words, chars = [], []
     for s in segs:
         for wd in s.words:
             words.append([wd.start, wd.end, wd.word])
-            t = re.sub(r"\s", "", wd.word)
+            t = clean(wd.word)
             for i, c in enumerate(t):
                 chars.append((c, wd.start + (wd.end - wd.start) * i / len(t), wd.start + (wd.end - wd.start) * (i + 1) / len(t)))
     json.dump(words, open(f"{a.outdir}/words.json", "w", encoding="utf-8"), ensure_ascii=False)
 
-    clean = lambda s: re.sub(r"<[^>]+>|[，。、：；？！·“”‘’（）\s,.:;?!\"'()\-]", "", s)
     texts = [re.sub(r"<[^>]+>", "", b["text"]) for b in beats]
     full = "".join(clean(t) for t in texts); owner = []
     for i, t in enumerate(texts): owner += [i] * len(clean(t))

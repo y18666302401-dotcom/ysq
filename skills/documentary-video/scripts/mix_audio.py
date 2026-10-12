@@ -66,7 +66,7 @@ def main():
     total = duration(a.video) if a.video else duration(a.voice) + 1.0
 
     inputs = ["-i", a.voice]
-    chains = ["[0:a]aformat=sample_rates=48000:channel_layouts=stereo,asplit=2[v][key]"]
+    chains = [f"[0:a]aformat=sample_rates=48000:channel_layouts=stereo,apad=whole_dur={total:.3f},asplit=2[v][key]"]   # 旁白补静音到全片长度：否则旁白一结束，侧链闪避会把后面的音乐一起切断
     mix = ["[v]"]
     idx = 1
     if a.bgm:
