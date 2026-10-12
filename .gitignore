@@ -4,3 +4,5 @@ out/
 __pycache__/
 node_modules/
 *.zip
+episodes/*/assets/fonts/*.ttf
+episodes/*/anim/out/

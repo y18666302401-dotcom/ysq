@@ -1,10 +1,79 @@
-{ "zh": { "name": ["曹操", "刘备", "杨修", "曹植", "曹丕"],
-          "place": ["汉中"],
-          "date": ["建安二十四年五月", "五月", "这年秋天"],
-          "num": ["两个字", "十几条", "四十五岁"],
-          "key": ["鸡肋", "活", "阔字", "人一口", "一合酥", "撤军", "全露了", "继承人", "被处死", "太聪明", "站错了队"] },
-  "en": { "name": ["Cao Cao", "Liu Bei", "Yang Xiu", "Cao Zhi", "Cao Pi"],
-          "place": ["Hanzhong", "China"],
-          "date": ["May, 219 AD", "In May", "That autumn"],
-          "num": ["two-word", "a dozen", "aged 45"],
-          "key": ["Chicken rib", "alive", "wide", "together", "one bite per person", "box of pastry", "pulled out", "too fast", "it all came out", "heir", "executed", "too clever", "wrong side"] } }
+{
+ "zh": {
+  "name": [
+   "曹操",
+   "刘备",
+   "杨修",
+   "曹植",
+   "曹丕"
+  ],
+  "place": [
+   "汉中"
+  ],
+  "date": [
+   "建安二十四年五月",
+   "五月",
+   "这年秋天"
+  ],
+  "num": [
+   "两个字",
+   "十几条",
+   "四十五岁"
+  ],
+  "key": [
+   "鸡肋",
+   "活",
+   "阔字",
+   "人一口",
+   "一合酥",
+   "撤军",
+   "全露了",
+   "继承人",
+   "被处死",
+   "太聪明",
+   "站错了队",
+   "三国演义",
+   "合",
+   "马上送到"
+  ]
+ },
+ "en": {
+  "name": [
+   "Cao Cao",
+   "Liu Bei",
+   "Yang Xiu",
+   "Cao Zhi",
+   "Cao Pi"
+  ],
+  "place": [
+   "Hanzhong",
+   "China"
+  ],
+  "date": [
+   "May, 219 AD",
+   "In May",
+   "That autumn"
+  ],
+  "num": [
+   "two-word",
+   "a dozen",
+   "aged 45"
+  ],
+  "key": [
+   "Chicken rib",
+   "alive",
+   "wide",
+   "together",
+   "one bite per person",
+   "box of pastry",
+   "pulled out",
+   "it all came out",
+   "heir",
+   "executed",
+   "too clever",
+   "wrong side",
+   "the novel",
+   "answered too fast"
+  ]
+ }
+}
