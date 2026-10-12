@@ -48,10 +48,16 @@ t1_end = evt('silence') or SH['08']['end'] - 1
 t = 0.4
 while t < t1_end - 0.6:
     N('han_perc', t, 0.5, DRUM if int(t / 1.6) % 4 == 0 else DRUM_L, 92); t += 1.6
-for t0, p in [(0.3, D4), (4.0, A3), (8.5, D4), (13.5, E4), (18.0, D4), (23.0, A3)]:
-    if t0 < t1_end - 1: N('xun', t0, min(3.6, t1_end - t0 - 0.4), p - 12 + 12, 70)
-for t0, p in [(1.2, D3), (2.0, A3), (5.6, G3), (6.2, A3), (9.8, D3), (10.4, E3), (14.8, A3), (15.3, G3), (16.0, D3), (20.2, A3), (21.0, D4), (24.6, A3)]:
-    if t0 < t1_end - 0.5: N('guzheng', t0, 1.4, p + 12, 74)
+XUN1 = [D4, A3, D4, E4, D4, A3]
+for i in range(40):                       # 埙：每 4.5 秒一个长音，一直到灯灭
+    t0 = 0.3 + i * 4.5
+    if t0 > t1_end - 1: break
+    N('xun', t0, min(3.6, t1_end - t0 - 0.4), XUN1[i % len(XUN1)], 70)
+ZH1 = [(1.2, D3), (2.0, A3), (5.6, G3), (6.2, A3), (9.8, D3), (10.4, E3), (14.8, A3), (15.3, G3), (16.0, D3), (20.2, A3), (21.0, D4), (24.6, A3)]
+for rep in range(4):                      # 筝的散板句子每 26 秒重复一遍
+    for t0, p in ZH1:
+        t0 += rep * 26
+        if t0 < t1_end - 0.5: N('guzheng', t0, 1.4, p + 12, 74)
 N('zheng_gliss', 0.05, 2.5, GL_UP, 90, human=False)
 slam = evt('slap', SH['03']['start'], SH['03']['end'])
 if slam: N('han_perc', slam, 0.6, DRUM, 118, human=False); N('han_perc', slam, 2.0, GONG_P, 80, human=False)
@@ -62,6 +68,10 @@ N('bianzhong', SH['06']['start'] + 0.6, 2.0, A4, 70)
 
 # ---------- 2 悬念 ----------
 if evt('silence'): silent(t1_end, t1_end + 0.35); N('bianzhong', t1_end + 0.35, 4.0, D4, 96, human=False); N('han_perc', t1_end + 0.35, 3.0, GONG_P, 70, human=False)
+# 灯灭之后到下一段之前：低低的"心跳"鼓 + 埙一个长音，不让画面空着
+t, r0_ = t1_end + 1.6, SH['09']['start'] - 0.3
+while t < r0_: N('han_perc', t, 0.4, DRUM_L, 84); N('han_perc', t + 0.28, 0.4, DRUM_L, 66); t += 1.4
+if r0_ - t1_end > 2: N('xun', t1_end + 1.2, r0_ - t1_end - 1.4, A3 + 12 - 12 + 5, 62)
 
 # ---------- 3 猜谜：C 宫，轻快（一拍 0.5 秒） ----------
 r0, r1 = SH['09']['start'], SH['14']['end']
@@ -83,10 +93,13 @@ for lo, hi in [(SH['10']['start'], SH['10']['end']), (SH['12']['start'], SH['12'
     if tt: N('han_perc', tt, 0.2, WOOD, 90, human=False)
 
 # ---------- 4 回汉中：建鼓 + 埙；撤军时梆子越走越远 ----------
-h0, h1 = SH['15']['start'], SH['16']['end']
+h0 = SH['15']['start']; h1 = (evt('book_slam') or SH['17']['end'] - 1) - 0.3   # 一直走到书合上前的骤停
 t = h0 + 0.2
 while t < h1 - 0.4: N('han_perc', t, 0.5, DRUM_L, 84); t += 1.6
-N('xun', h0 + 0.1, 3.0, D4, 72); N('xun', h0 + 3.3, min(3.0, h1 - h0 - 3.6), A3, 70)
+t = h0 + 0.1
+for i in range(8):
+    if t > h1 - 0.8: break
+    N('xun', t, min(3.0, h1 - t - 0.2), [D4, A3, E4 - 12 + 12, D4][i % 4], 70); t += 3.2
 N('guzheng', h0 + 0.2, 1.4, D4, 70); N('guzheng', h0 + 1.6, 1.4, A3, 66)
 for i, tt in enumerate(e['t'] for e in EV if e['type'] == 'block' and h0 <= e['t'] <= h1): N('han_perc', tt, 0.3, SLIT_L if i % 2 else SLIT_H, 90 - i * 14, human=False)
 rib = evt('thud', SH['16']['start'], SH['16']['end'])
